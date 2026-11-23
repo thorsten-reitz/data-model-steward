@@ -1,0 +1,176 @@
+
+model:
+  name: PermitRegistry
+  title: Permit Registry Model
+  description: Permits issued by authorities, with their conditions.
+  namespace: https://example.org/models/permit-registry
+  prefix: pr
+  version: 1.1.0
+  status: draft            # 1.0.0 remains the released version (releases/1.0.0); see CHANGELOG
+  purposes: [persistence, exchange]
+  targets: [postgres, jsonschema, xsd]
+  conventions:
+    language: en
+  standards: []
+  sources: [S1, S2]
+  exportOptions:
+    jsonschema: {root: Permit, closed: true}
+
+enumerations:
+  PermitStatus:
+    description: >-
+      Lifecycle status of a permit as decided by the authority. Expiry is not a stored
+      status; it is derived from validUntil/validUntilTime (see Permit.expired, D-005).
+    extensible: false
+    values:
+      - {code: applied, description: Application received, not yet decided.}
+      - {code: granted}
+      - {code: refused}
+      - {code: revoked}
+    sources: [S1]
+
+  ConditionCategory:
+    description: Kind of obligation a permit condition imposes.
+    extensible: false
+    values:
+      - {code: environmental, description: Obligation protecting the environment.}
+      - {code: safety, description: Obligation concerning the safety of persons or property.}
+      - {code: other, description: Any other obligation.}
+    sources: [S2]
+
+datatypes:
+  Address:
+    description: Postal address.
+    attributes:
+      street: {type: string, multiplicity: "0..1", constraints: {maxLength: 200}}
+      postalCode: {type: string, constraints: {maxLength: 10}}
+      city: {type: string, constraints: {maxLength: 100}}
+
+  Applicant:
+    description: Person or organisation that applied for a permit.
+    classification: personal    # may identify natural persons (D-004, Q-002)
+    attributes:
+      name: {type: string, description: Name of the applicant (person or contact person)., constraints: {maxLength: 200}}
+      organisation: {type: string, multiplicity: "0..1", description: Organisation on whose behalf the application was made., constraints: {maxLength: 200}}
+      address: {type: Address}
+    sources: [S2]
+
+classes:
+  Authority:
+    description: Public body competent to issue permits.
+    identifier: {attribute: authorityId, strategy: uri, external: true}
+    history: {mode: audit}
+    nfr: {volume: 500, growth: stable}
+    attributes:
+      authorityId: {type: uri, description: Persistent URI of the authority., unique: true}
+      name: {type: string, constraints: {maxLength: 200}}
+      address: {type: Address}
+    sources: [S1]
+
+  Permit:
+    description: Official authorisation granted to an applicant for an activity at a site.
+    identifier: {attribute: permitId, strategy: uuid, external: true}
+    history: {mode: versioned, validTime: true, transactionTime: false, deletion: logical}
+    nfr:
+      volume: 2000000
+      growth: 200000/year
+      accessPaths: ["by permitId", "by reference (file number)", "by site within bounding box"]
+      classification: internal   # applicant sub-structure is classified personal (D-004)
+    attributes:
+      permitId: {type: uuid, description: Stable identifier of the permit., unique: true}
+      reference:
+        type: string
+        label: File number
+        aliases: [fileNumber]
+        description: >-
+          Human-readable file number used by the authority ("file number" / fileNumber in
+          clerks' language). Technical name kept as "reference" until the next major
+          version to avoid breaking exchange partners (CR-7 item 1, D-003).
+        unique: true
+        constraints: {maxLength: 40}
+        sources: [S1, S2]
+      status: {type: PermitStatus}
+      applicant:
+        type: Applicant
+        multiplicity: "0..1"
+        description: >-
+          Applicant of the permit. Optional in the schema because it is unknown for many
+          permits registered before CR-7; mandatory for permits registered from the CR-7
+          cut-over on (C-002).
+        sources: [S2]
+      decisionDate: {type: date, multiplicity: "0..1"}
+      validUntil:
+        type: date
+        multiplicity: "0..1"
+        voidable: true
+        description: Last day on which the permit is valid (see validUntilTime for the time of day).
+      validUntilTime:
+        type: time
+        multiplicity: "0..1"
+        description: >-
+          Local time of day (time zone of the issuing authority) at which the permit expires
+          on the validUntil date. Absent = the permit is valid until the end of that day.
+        sources: [S2]
+      expired:
+        type: boolean
+        derived: true
+        exchanged: false
+        description: >-
+          True when status = granted and the expiry moment (validUntil + validUntilTime,
+          or end of validUntil if no time) has passed. Derived, not stored or exchanged;
+          presented to users as effective status "expired" (CR-7 item 3, D-005).
+        expression: "status = granted and validUntil != null and combine(validUntil, coalesce(validUntilTime, '24:00')) < now()"
+        sources: [S2]
+      siteLocation:
+        type: geometry
+        constraints: {geometryType: Polygon, crs: "EPSG:4326"}
+      keywords:
+        type: string
+        multiplicity: "0..*"
+        constraints: {maxLength: 50}
+        deprecated: {since: 1.1.0, removeIn: 2.0.0, reason: "Not used (CR-7 item 6). Producers should stop populating it; consumers must still accept it."}
+    sources: [S1]
+
+  PermitCondition:
+    description: Obligation attached to a permit.
+    attributes:
+      text: {type: text}
+      category:
+        type: ConditionCategory
+        multiplicity: "0..1"
+        description: >-
+          Category of the condition. Optional because existing conditions are not
+          categorised (see Q-004).
+        sources: [S2]
+      dueDate: {type: date, multiplicity: "0..1"}
+
+associations:
+  - name: PermitIssuedBy
+    description: The authority that issued the permit.
+    kind: reference
+    from: {class: Permit, role: permits, multiplicity: "0..*"}
+    to: {class: Authority, role: issuer, multiplicity: "1"}
+  - name: PermitConditions
+    kind: composition
+    from: {class: Permit, role: permit, multiplicity: "1"}
+    to: {class: PermitCondition, role: conditions, multiplicity: "0..*"}
+    ordered: true
+
+constraints:
+  - id: C-001
+    appliesTo: Permit
+    description: validUntil must not be before decisionDate.
+    expression: "validUntil >= decisionDate"
+    sources: [S1]
+  - id: C-002
+    appliesTo: Permit
+    description: >-
+      Every permit registered on or after the CR-7 cut-over date must have an applicant.
+      Permits registered earlier may lack one (applicant unknown). Enforced on creation only.
+    expression: "on create (after cut-over): applicant != null"
+    sources: [S2]
+  - id: C-003
+    appliesTo: Permit
+    description: validUntilTime may only be given together with validUntil.
+    expression: "validUntilTime != null implies validUntil != null"
+    sources: [S2]

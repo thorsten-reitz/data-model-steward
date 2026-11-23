@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/airquality/2.1/observations.schema.json",
+  "title": "AirQualityObservations (ObservationCollection)",
+  "description": "GENERATED from model/airquality.model.yaml - do not edit by hand. Canonical model version 2.1.0-canonical.1, source: observations.xsd (partner schema version 2.1). The root validates a full delivery (ObservationCollection); API resources are available under $defs (e.g. #/$defs/ObservationRecord, #/$defs/StationSummary).",
+  "$ref": "#/$defs/ObservationCollection",
+  "$defs": {
+    "ObservationCollection": {
+      "type": "object",
+      "description": "A delivery from a partner - a batch of stations with their sampling points and observations.",
+      "properties": {
+        "stations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Station"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "stations"
+      ],
+      "additionalProperties": false
+    },
+    "Station": {
+      "type": "object",
+      "description": "A monitoring station (physical site).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
+          "maxLength": 128,
+          "description": "Document/technical identifier of the station (xs:ID). Treated as the station's stable id."
+        },
+        "stationCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Business code of the station (e.g. national/EEA station code)."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable station name."
+        },
+        "operator": {
+          "type": "string",
+          "description": "Name of the organisation operating the station (free text)."
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        },
+        "stationType": {
+          "$ref": "#/$defs/StationKind",
+          "description": "Station classification (traffic / industrial / background)."
+        },
+        "samplingPoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SamplingPoint"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "stationCode",
+        "name",
+        "position",
+        "stationType",
+        "samplingPoints"
+      ],
+      "additionalProperties": false
+    },
+    "Position": {
+      "type": "object",
+      "description": "Geographic position of the station. CRS ASSUMED to be WGS84 (EPSG:4326), decimal degrees.",
+      "properties": {
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90,
+          "description": "Latitude in decimal degrees (WGS84 assumed)."
+        },
+        "lon": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180,
+          "description": "Longitude in decimal degrees (WGS84 assumed)."
+        },
+        "altitude": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Altitude in metres above mean sea level (unit and datum ASSUMED). Absent and null both mean unknown."
+        }
+      },
+      "required": [
+        "lat",
+        "lon"
+      ],
+      "additionalProperties": false
+    },
+    "SamplingPoint": {
+      "type": "object",
+      "description": "A measurement configuration at a station for exactly one pollutant. Owns the time series of observations; all observations share the sampling point's unit.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
+          "maxLength": 128
+        },
+        "pollutant": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Pollutant code from the EEA pollutant vocabulary notation (e.g. NO2, PM10, PM2.5, O3, SO2, CO). Not enforced as an enum because the XSD does not list the 6 pollutants in use."
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Unit of measurement of all observation values (e.g. ug/m3, mg/m3)."
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Observation"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "pollutant",
+        "unit"
+      ],
+      "additionalProperties": false
+    },
+    "Observation": {
+      "type": "object",
+      "description": "One aggregated measurement over the interval [begin, end). Expected cadence is hourly. Natural key within a sampling point: begin.",
+      "properties": {
+        "begin": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+          "description": "Start of the averaging interval (inclusive - assumed)."
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+          "description": "End of the averaging interval (exclusive - assumed). Must be later than begin (not expressible in XSD/JSON Schema; validate in code)."
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Measured value in the sampling point's unit; null when no value is available."
+        },
+        "validity": {
+          "$ref": "#/$defs/ValidityFlag"
+        },
+        "verification": {
+          "$ref": "#/$defs/VerificationFlag"
+        }
+      },
+      "required": [
+        "begin",
+        "end",
+        "value",
+        "validity",
+        "verification"
+      ],
+      "additionalProperties": false
+    },
+    "StationKind": {
+      "type": "string",
+      "description": "Station classification by dominant emission source (EEA 'station type').",
+      "enum": [
+        "traffic",
+        "industrial",
+        "background"
+      ],
+      "x-enumDescriptions": {
+        "traffic": "Pollution level dominated by emissions from nearby traffic.",
+        "industrial": "Pollution level dominated by industrial sources.",
+        "background": "Not dominated by a single source; representative of general exposure."
+      }
+    },
+    "ValidityFlag": {
+      "type": "integer",
+      "description": "Observation validity flag. Values ASSUMED to follow the EEA e-Reporting validity vocabulary (http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity); the XSD only says xs:int.",
+      "enum": [
+        -99,
+        -1,
+        1,
+        2,
+        3
+      ],
+      "x-enumDescriptions": {
+        "-99": "Not valid due to station maintenance or calibration in progress.",
+        "-1": "Not valid.",
+        "1": "Valid.",
+        "2": "Valid",
+        "3": "Valid"
+      }
+    },
+    "VerificationFlag": {
+      "type": "integer",
+      "description": "Observation verification flag. Values ASSUMED to follow the EEA e-Reporting verification vocabulary (http://dd.eionet.europa.eu/vocabulary/aq/observationverification).",
+      "enum": [
+        1,
+        2,
+        3
+      ],
+      "x-enumDescriptions": {
+        "1": "Verified.",
+        "2": "Preliminary verified.",
+        "3": "Not verified."
+      }
+    },
+    "ObservationRecord": {
+      "type": "object",
+      "description": "Flat observation as returned by the REST API (e.g. GET /observations?station=..&pollutant=..&from=..&to=..). Denormalises station/sampling point keys onto each observation for efficient paging over ~57,600 rows/day.",
+      "properties": {
+        "stationId": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
+          "maxLength": 128,
+          "description": "Document/technical identifier of the station (xs:ID). Treated as the station's stable id."
+        },
+        "samplingPointId": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
+          "maxLength": 128
+        },
+        "pollutant": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Pollutant code from the EEA pollutant vocabulary notation (e.g. NO2, PM10, PM2.5, O3, SO2, CO). Not enforced as an enum because the XSD does not list the 6 pollutants in use."
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Unit of measurement of all observation values (e.g. ug/m3, mg/m3)."
+        },
+        "begin": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+          "description": "Start of the averaging interval (inclusive - assumed)."
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+          "description": "End of the averaging interval (exclusive - assumed). Must be later than begin (not expressible in XSD/JSON Schema; validate in code)."
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Measured value in the sampling point's unit; null when no value is available."
+        },
+        "validity": {
+          "$ref": "#/$defs/ValidityFlag"
+        },
+        "verification": {
+          "$ref": "#/$defs/VerificationFlag"
+        }
+      },
+      "required": [
+        "stationId",
+        "samplingPointId",
+        "pollutant",
+        "unit",
+        "begin",
+        "end",
+        "value",
+        "validity",
+        "verification"
+      ],
+      "additionalProperties": false
+    },
+    "StationSummary": {
+      "type": "object",
+      "description": "Station resource without nested observations (e.g. GET /stations/{id}).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
+          "maxLength": 128,
+          "description": "Document/technical identifier of the station (xs:ID). Treated as the station's stable id."
+        },
+        "stationCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Business code of the station (e.g. national/EEA station code)."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable station name."
+        },
+        "operator": {
+          "type": "string",
+          "description": "Name of the organisation operating the station (free text)."
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        },
+        "stationType": {
+          "$ref": "#/$defs/StationKind",
+          "description": "Station classification (traffic / industrial / background)."
+        },
+        "samplingPoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
+                "maxLength": 128
+              },
+              "pollutant": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "description": "Pollutant code from the EEA pollutant vocabulary notation (e.g. NO2, PM10, PM2.5, O3, SO2, CO). Not enforced as an enum because the XSD does not list the 6 pollutants in use."
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "description": "Unit of measurement of all observation values (e.g. ug/m3, mg/m3)."
+              }
+            },
+            "required": [
+              "id",
+              "pollutant",
+              "unit"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "stationCode",
+        "name",
+        "position",
+        "stationType",
+        "samplingPoints"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

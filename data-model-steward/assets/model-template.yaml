@@ -1,0 +1,101 @@
+# Canonical, implementation-neutral data model.
+# Format: references/model-format.md  ·  Check: python scripts/dmtool.py validate model.yaml
+# This template doubles as a worked example — replace its content with the real model.
+
+model:
+  name: PermitRegistry
+  title: Permit Registry Model
+  description: Permits issued by authorities, with their conditions.
+  namespace: https://example.org/models/permit-registry
+  prefix: pr
+  version: 0.1.0
+  status: draft
+  purposes: [persistence, exchange]
+  targets: [postgres, jsonschema, xsd]
+  conventions:
+    language: en
+  standards: []
+  sources: [S1]
+  exportOptions:
+    jsonschema: {root: Permit, closed: true}
+
+enumerations:
+  PermitStatus:
+    description: Lifecycle status of a permit.
+    extensible: false
+    values:
+      - {code: applied, description: Application received, not yet decided.}
+      - {code: granted}
+      - {code: refused}
+      - {code: revoked}
+    sources: [S1]
+
+datatypes:
+  Address:
+    description: Postal address.
+    attributes:
+      street: {type: string, multiplicity: "0..1", constraints: {maxLength: 200}}
+      postalCode: {type: string, constraints: {maxLength: 10}}
+      city: {type: string, constraints: {maxLength: 100}}
+
+classes:
+  Authority:
+    description: Public body competent to issue permits.
+    identifier: {attribute: authorityId, strategy: uri, external: true}
+    history: {mode: audit}
+    nfr: {volume: 500, growth: stable}
+    attributes:
+      authorityId: {type: uri, description: Persistent URI of the authority., unique: true}
+      name: {type: string, constraints: {maxLength: 200}}
+      address: {type: Address}
+    sources: [S1]
+
+  Permit:
+    description: Official authorisation granted to an applicant for an activity at a site.
+    identifier: {attribute: permitId, strategy: uuid, external: true}
+    history: {mode: versioned, validTime: true, transactionTime: false, deletion: logical}
+    nfr:
+      volume: 2000000
+      growth: 200000/year
+      accessPaths: ["by permitId", "by reference", "by site within bounding box"]
+      classification: internal
+    attributes:
+      permitId: {type: uuid, description: Stable identifier of the permit., unique: true}
+      reference:
+        type: string
+        description: Human-readable file number used by the authority.
+        unique: true
+        constraints: {maxLength: 40}
+      status: {type: PermitStatus}
+      decisionDate: {type: date, multiplicity: "0..1"}
+      validUntil: {type: date, multiplicity: "0..1", voidable: true}
+      siteLocation:
+        type: geometry
+        constraints: {geometryType: Polygon, crs: "EPSG:4326"}
+      keywords: {type: string, multiplicity: "0..*", constraints: {maxLength: 50}}
+    sources: [S1]
+
+  PermitCondition:
+    description: Obligation attached to a permit.
+    attributes:
+      text: {type: text}
+      dueDate: {type: date, multiplicity: "0..1"}
+
+associations:
+  - name: PermitIssuedBy
+    description: The authority that issued the permit.
+    kind: reference
+    from: {class: Permit, role: permits, multiplicity: "0..*"}
+    to: {class: Authority, role: issuer, multiplicity: "1"}
+  - name: PermitConditions
+    kind: composition
+    from: {class: Permit, role: permit, multiplicity: "1"}
+    to: {class: PermitCondition, role: conditions, multiplicity: "0..*"}
+    ordered: true
+
+constraints:
+  - id: C-001
+    appliesTo: Permit
+    description: validUntil must not be before decisionDate.
+    expression: "validUntil >= decisionDate"
+    sources: [S1]

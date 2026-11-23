@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/models/permit-registry/1.1.0/schema.json",
+  "title": "Permit Registry Model",
+  "description": "Permits issued by authorities, with their conditions.",
+  "$comment": "PermitRegistry 1.1.0 (draft). Backward compatible with 1.0.0: every valid 1.0.0 document is valid against this schema. Because content is closed, 1.0.0 validators reject documents that use the new 1.1.0 properties; send 1.0.0 consumers the 1.0.0 projection (see exports/1.1.0/compatibility.md).",
+  "$ref": "#/$defs/Permit",
+  "$defs": {
+    "PermitStatus": {
+      "description": "Lifecycle status of a permit as decided by the authority. Expiry is not a status value; it is derived from validUntil/validUntilTime.",
+      "enum": [
+        "applied",
+        "granted",
+        "refused",
+        "revoked"
+      ]
+    },
+    "ConditionCategory": {
+      "description": "Kind of obligation a permit condition imposes.",
+      "enum": [
+        "environmental",
+        "safety",
+        "other"
+      ]
+    },
+    "Address": {
+      "description": "Postal address.",
+      "type": "object",
+      "properties": {
+        "street": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "postalCode": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "city": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "postalCode",
+        "city"
+      ],
+      "additionalProperties": false
+    },
+    "Applicant": {
+      "description": "Person or organisation that applied for a permit. Contains personal data.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the applicant (person or contact person).",
+          "type": "string",
+          "maxLength": 200
+        },
+        "organisation": {
+          "description": "Organisation on whose behalf the application was made.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "address": {
+          "$ref": "#/$defs/Address"
+        }
+      },
+      "required": [
+        "name",
+        "address"
+      ],
+      "additionalProperties": false
+    },
+    "Authority": {
+      "description": "Public body competent to issue permits.",
+      "type": "object",
+      "properties": {
+        "authorityId": {
+          "description": "Persistent URI of the authority.",
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "address": {
+          "$ref": "#/$defs/Address"
+        }
+      },
+      "required": [
+        "authorityId",
+        "name",
+        "address"
+      ],
+      "unevaluatedProperties": false
+    },
+    "Permit": {
+      "description": "Official authorisation granted to an applicant for an activity at a site.",
+      "type": "object",
+      "properties": {
+        "permitId": {
+          "description": "Stable identifier of the permit.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference": {
+          "description": "Human-readable file number used by the authority (\"fileNumber\"). Property name kept as 'reference' for compatibility.",
+          "type": "string",
+          "maxLength": 40,
+          "title": "File number"
+        },
+        "status": {
+          "$ref": "#/$defs/PermitStatus"
+        },
+        "applicant": {
+          "description": "Applicant of the permit. Mandatory for permits registered from the CR-7 cut-over on; may be absent for older permits.",
+          "$ref": "#/$defs/Applicant"
+        },
+        "decisionDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "validUntil": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Last day on which the permit is valid."
+        },
+        "validUntilTime": {
+          "description": "Local time of day (time zone of the issuing authority) at which the permit expires on validUntil. Absent = end of day. Only allowed together with validUntil.",
+          "type": "string",
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$"
+        },
+        "siteLocation": {
+          "$ref": "https://geojson.org/schema/Polygon.json"
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "deprecated": true,
+          "description": "Deprecated since 1.1.0, to be removed in 2.0.0. Producers should not populate it."
+        },
+        "issuer": {
+          "description": "Reference to Authority by identifier",
+          "type": "string",
+          "format": "uri"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermitCondition"
+          }
+        },
+        "versionId": {
+          "type": "string",
+          "description": "Version of this object"
+        },
+        "validFrom": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validTo": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "permitId",
+        "reference",
+        "status",
+        "siteLocation",
+        "issuer"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-001: validUntil must not be before decisionDate. C-002: permits registered on/after the CR-7 cut-over must have an applicant (not expressible here; enforced by the registering system). C-003: validUntilTime requires validUntil (dependentRequired).",
+      "dependentRequired": {
+        "validUntilTime": [
+          "validUntil"
+        ]
+      }
+    },
+    "PermitCondition": {
+      "description": "Obligation attached to a permit.",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/ConditionCategory"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

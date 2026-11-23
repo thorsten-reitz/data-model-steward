@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObservationCollection xmlns="http://example.org/airquality/2.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <station id="ST_DE0001A">
+    <stationCode>DE0001A</stationCode>
+    <name>Berlin Mitte</name>
+    <operator>Umweltbundesamt</operator>
+    <position><lat>52.5200</lat><lon>13.4050</lon><altitude>34</altitude></position>
+    <stationType>traffic</stationType>
+    <sampling id="SP_DE0001A_NO2">
+      <pollutant>NO2</pollutant>
+      <unit>ug/m3</unit>
+      <observation><begin>2026-11-22T00:00:00Z</begin><end>2026-11-22T01:00:00Z</end><value>41.3</value><validity>7</validity><verification>3</verification></observation>
+      <observation><begin>2026-11-22T01:00:00+01:00</begin><end>2026-11-22T02:00:00+01:00</end><value xsi:nil="true"/><validity>-99</validity><verification>3</verification></observation>
+    </sampling>
+    <sampling id="SP_DE0001A_PM10">
+      <pollutant>PM10</pollutant>
+      <unit>ug/m3</unit>
+    </sampling>
+  </station>
+  <station id="ST_DE0002B">
+    <stationCode>DE0002B</stationCode>
+    <name>Hilltop</name>
+    <position><lat>-12.5</lat><lon>-179.9</lon><altitude xsi:nil="true"/></position>
+    <stationType>background</stationType>
+    <sampling id="SP_DE0002B_O3">
+      <pollutant>O3</pollutant>
+      <unit>ug/m3</unit>
+      <observation><begin>2026-11-22T00:00:00Z</begin><end>2026-11-22T01:00:00Z</end><value>0.5</value><validity>3</validity><verification>1</verification></observation>
+    </sampling>
+  </station>
+</ObservationCollection>

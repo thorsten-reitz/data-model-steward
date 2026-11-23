@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:aq="http://example.org/airquality/2.1"
+           targetNamespace="http://example.org/airquality/2.1" elementFormDefault="qualified" version="2.1">
+  <xs:element name="ObservationCollection">
+    <xs:complexType><xs:sequence>
+      <xs:element name="station" type="aq:StationType" maxOccurs="unbounded"/>
+    </xs:sequence></xs:complexType>
+  </xs:element>
+  <xs:complexType name="StationType">
+    <xs:sequence>
+      <xs:element name="stationCode" type="xs:string"/>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="operator" type="xs:string" minOccurs="0"/>
+      <xs:element name="position" type="aq:PositionType"/>
+      <xs:element name="stationType" type="aq:StationKindType"/>
+      <xs:element name="sampling" type="aq:SamplingPointType" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="PositionType">
+    <xs:sequence>
+      <xs:element name="lat" type="xs:decimal"/>
+      <xs:element name="lon" type="xs:decimal"/>
+      <xs:element name="altitude" type="xs:decimal" minOccurs="0" nillable="true"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="StationKindType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="traffic"/><xs:enumeration value="industrial"/><xs:enumeration value="background"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="SamplingPointType">
+    <xs:sequence>
+      <xs:element name="pollutant" type="xs:string">
+        <xs:annotation><xs:documentation>Code from the EEA pollutant vocabulary, e.g. NO2, PM10, O3.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="unit" type="xs:string"/>
+      <xs:element name="observation" type="aq:ObservationType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="ObservationType">
+    <xs:sequence>
+      <xs:element name="begin" type="xs:dateTime"/>
+      <xs:element name="end" type="xs:dateTime"/>
+      <xs:element name="value" type="xs:double" nillable="true"/>
+      <xs:element name="validity" type="xs:int"/>
+      <xs:element name="verification" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

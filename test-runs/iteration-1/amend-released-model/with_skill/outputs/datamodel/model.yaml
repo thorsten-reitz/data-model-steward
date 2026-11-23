@@ -1,0 +1,215 @@
+
+model:
+  name: PermitRegistry
+  title: Permit Registry Model
+  description: Permits issued by authorities, with their conditions.
+  namespace: https://example.org/models/permit-registry
+  prefix: pr
+  version: 1.1.0
+  status: draft
+  purposes: [persistence, exchange]
+  targets: [postgres, jsonschema, xsd]
+  conventions:
+    language: en
+  standards: []
+  sources: [S1, S2]
+  exportOptions:
+    jsonschema: {root: Permit, closed: true}
+  notes: >
+    1.1.0 works in change request CR-7 (S2) without breaking changes (D-003).
+    Not yet released: waiting for the owner's go-ahead and the open questions in open-questions.md.
+
+enumerations:
+  PermitStatus:
+    description: Lifecycle status of a permit.
+    extensible: false
+    values:
+      - {code: applied, description: Application received, not yet decided.}
+      - {code: granted}
+      - {code: refused}
+      - {code: revoked}
+    notes: >
+      CR-7 item 3 asked for a status "expired". Not added as a stored value; expiry is
+      derived from status and validity end (see Permit notes, decision D-006).
+    sources: [S1, S2]
+    decisions: [D-006]
+
+  ConditionCategory:
+    description: Category of a permit condition.
+    extensible: true
+    authority: Permits team
+    values:
+      - {code: environmental, description: Condition protecting the environment.}
+      - {code: safety, description: Condition concerning the safety of people or property.}
+      - {code: other, description: Any other condition.}
+    since: 1.1.0
+    sources: [S2]
+    decisions: [D-008]
+
+datatypes:
+  Address:
+    description: Postal address.
+    attributes:
+      street: {type: string, multiplicity: "0..1", constraints: {maxLength: 200}}
+      postalCode: {type: string, constraints: {maxLength: 10}}
+      city: {type: string, constraints: {maxLength: 100}}
+
+  Applicant:
+    description: Person or organisation that applied for the permit, as recorded on the permit.
+    attributes:
+      name:
+        type: string
+        description: Name of the applicant (natural person or contact person).
+        constraints: {maxLength: 200}
+      organisation:
+        type: string
+        multiplicity: "0..1"
+        description: Organisation the applicant acts for, if any.
+        constraints: {maxLength: 200}
+      address:
+        type: Address
+        description: Postal address of the applicant.
+    since: 1.1.0
+    sources: [S2]
+    decisions: [D-005]
+
+classes:
+  Authority:
+    description: Public body competent to issue permits.
+    identifier: {attribute: authorityId, strategy: uri, external: true}
+    history: {mode: audit}
+    nfr: {volume: 500, growth: stable}
+    attributes:
+      authorityId: {type: uri, description: Persistent URI of the authority., unique: true}
+      name: {type: string, constraints: {maxLength: 200}}
+      address: {type: Address}
+    sources: [S1]
+
+  Permit:
+    description: Official authorisation granted to an applicant for an activity at a site.
+    identifier: {attribute: permitId, strategy: uuid, external: true}
+    history: {mode: versioned, validTime: true, transactionTime: false, deletion: logical}
+    nfr:
+      volume: 2000000
+      growth: 200000/year
+      accessPaths: ["by permitId", "by reference (file number)", "by site within bounding box"]
+      classification: personal
+      notes: Raised from internal to personal in 1.1.0 because of the applicant (D-005, Q-004).
+    attributes:
+      permitId: {type: uuid, description: Stable identifier of the permit., unique: true}
+      reference:
+        type: string
+        description: >-
+          File number under which the authority handles the permit (business term
+          "file number"; the technical/exchange name stays "reference", see D-004).
+        unique: true
+        constraints: {maxLength: 40}
+        sources: [S1, S2]
+        decisions: [D-004]
+      status: {type: PermitStatus}
+      decisionDate: {type: date, multiplicity: "0..1"}
+      validUntil:
+        type: date
+        multiplicity: "0..1"
+        voidable: true
+        description: >-
+          Last day of validity (date only). Still populated for 1.0.0 consumers; must equal
+          the local calendar date of validUntilDateTime when both are present (C-003).
+        deprecated:
+          since: 1.1.0
+          reason: CR-7 item 4 - the validity end needs a time of day. Removal planned for the next major release.
+          replacedBy: validUntilDateTime
+        sources: [S1, S2]
+        decisions: [D-007]
+      validUntilDateTime:
+        type: dateTime
+        multiplicity: "0..1"
+        voidable: true
+        description: >-
+          Exact end of validity with time of day and UTC offset (e.g. 2027-03-31T12:00:00+02:00).
+          The permit is valid up to, but not including, this instant.
+        since: 1.1.0
+        sources: [S2]
+        decisions: [D-007]
+      siteLocation:
+        type: geometry
+        constraints: {geometryType: Polygon, crs: "EPSG:4326"}
+      keywords:
+        type: string
+        multiplicity: "0..*"
+        constraints: {maxLength: 50}
+        description: Free keywords. No longer used; producers should stop populating it.
+        deprecated:
+          since: 1.1.0
+          reason: CR-7 item 6 - not used by anyone. Removal planned for the next major release.
+        sources: [S1, S2]
+        decisions: [D-009]
+      applicant:
+        type: Applicant
+        multiplicity: "0..1"
+        voidable: true
+        description: >-
+          Applicant of the permit. Expected for every permit recorded from 1.1.0 on (C-002);
+          null or absent for older permits whose applicant is unknown.
+        since: 1.1.0
+        sources: [S2]
+        decisions: [D-005]
+    notes: >-
+      Derived state "expired" (CR-7 item 3, D-006) - a permit is expired when status = granted
+      and its validity end (validUntilDateTime, else the end of the validUntil day in the
+      authority's local time) has passed. Not stored and not exchanged; the database offers it
+      in the view permit_registry.permit_with_expiry (exports/1.1.0/views.sql), partners
+      compute it from the same fields.
+    sources: [S1, S2]
+
+  PermitCondition:
+    description: Obligation attached to a permit.
+    attributes:
+      text: {type: text}
+      dueDate: {type: date, multiplicity: "0..1"}
+      category:
+        type: ConditionCategory
+        multiplicity: "0..1"
+        description: >-
+          Category of the condition. Expected for new conditions; empty for conditions
+          recorded before 1.1.0 until they are classified.
+        since: 1.1.0
+        sources: [S2]
+        decisions: [D-008]
+
+associations:
+  - name: PermitIssuedBy
+    description: The authority that issued the permit.
+    kind: reference
+    from: {class: Permit, role: permits, multiplicity: "0..*"}
+    to: {class: Authority, role: issuer, multiplicity: "1"}
+  - name: PermitConditions
+    kind: composition
+    from: {class: Permit, role: permit, multiplicity: "1"}
+    to: {class: PermitCondition, role: conditions, multiplicity: "0..*"}
+    ordered: true
+
+constraints:
+  - id: C-001
+    appliesTo: Permit
+    description: validUntil must not be before decisionDate.
+    expression: "validUntil >= decisionDate"
+    sources: [S1]
+  - id: C-002
+    appliesTo: Permit
+    description: >-
+      WARNING LEVEL (documented, not enforced by the schemas) - every permit recorded from
+      1.1.0 on must have an applicant; older permits may lack it. Cannot invalidate existing
+      data. Candidate for enforcement in 2.0.0 (Q-001).
+    expression: "recordedAfter(release 1.1.0) implies applicant is present"
+    sources: [S2]
+    decisions: [D-005]
+  - id: C-003
+    appliesTo: Permit
+    description: >-
+      Consistency of the validity end (applies only to the new attribute validUntilDateTime,
+      so it cannot invalidate existing data) - the local date of validUntilDateTime must not
+      be before decisionDate, and when validUntil is also present it equals that local date.
+    expression: "validUntilDateTime is null or (localDate(validUntilDateTime) >= decisionDate and (validUntil is null or validUntil = localDate(validUntilDateTime)))"
+    sources: [S2]
+    decisions: [D-007]

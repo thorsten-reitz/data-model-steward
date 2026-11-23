@@ -1,0 +1,94 @@
+{
+  "expectations": [
+    {
+      "text": "datamodel/releases/1.0.0/model.yaml is unchanged",
+      "passed": true,
+      "evidence": "Byte compare (cmp) of outputs/datamodel/releases/1.0.0/model.yaml against the original input file: identical."
+    },
+    {
+      "text": "fileNumber is added while reference is kept and marked deprecated (no plain rename)",
+      "passed": false,
+      "evidence": "Literal FAIL: no fileNumber attribute; reference not deprecated. model.yaml lines 81-91: `reference` with `label: File number`, `aliases: [fileNumber]`, 'Technical name kept as \"reference\" until the next major version to avoid breaking exchange partners (D-003)'. Defensible non-breaking alternative (relabel + alias, rename deferred to 2.0.0), not a plain rename."
+    },
+    {
+      "text": "keywords is kept and marked deprecated rather than removed",
+      "passed": true,
+      "evidence": "model.yaml lines 127-131: keywords kept with `deprecated: {since: 1.1.0, removeIn: 2.0.0, reason: \"Not used (CR-7 item 6)...\"}`; schema.json line 149 `\"deprecated\": true`."
+    },
+    {
+      "text": "The applicant is added as optional (lower bound 0), or making it mandatory is explicitly presented as a breaking decision for the user",
+      "passed": true,
+      "evidence": "model.yaml lines 93-95: `applicant: type: Applicant, multiplicity: \"0..1\"`; C-002 requires it only for permits after a cut-over date."
+    },
+    {
+      "text": "PermitStatus contains the new value expired",
+      "passed": false,
+      "evidence": "model.yaml lines 20-30: PermitStatus still applied/granted/refused/revoked; 'Expiry is not a stored status; it is derived' (D-005), via derived Permit.expired and a view. Reasoned choice, but the assertion is not met."
+    },
+    {
+      "text": "validUntil is not silently retyped from date to dateTime; either a new attribute is added or the retyping is escalated as a breaking decision",
+      "passed": true,
+      "evidence": "validUntil remains `type: date` (lines 102-106); new attribute `validUntilTime: type: time, multiplicity: \"0..1\"` (lines 107-113). Not retyped. Note: validUntil is not deprecated (date + separate time design rather than a dateTime)."
+    },
+    {
+      "text": "PermitCondition gets an optional category with the values environmental, safety, other",
+      "passed": true,
+      "evidence": "model.yaml lines 32-38 ConditionCategory {environmental, safety, other}; PermitCondition.category multiplicity \"0..1\" (lines 138-144)."
+    },
+    {
+      "text": "The model version is bumped to 1.1.0",
+      "passed": true,
+      "evidence": "model.yaml line 8: `version: 1.1.0` (status: draft)."
+    },
+    {
+      "text": "CHANGELOG.md has an entry for the new version that states its compatibility",
+      "passed": true,
+      "evidence": "CHANGELOG.md '## 1.1.0 - unreleased': 'Minor version: backward compatible with 1.0.0. Every valid 1.0.0 document and database stays valid.' (The changelog itself does not mention that closed 1.0.0 validators reject the new fields; that caveat is only in compatibility.md.)"
+    },
+    {
+      "text": "The change request is registered as a new source in sources.md",
+      "passed": true,
+      "evidence": "sources.md row: '| S2 | Change request CR-7 (permits team) | ../change-request-CR7.md | 2026-11-15 | change request | ...'."
+    },
+    {
+      "text": "A new JSON Schema export is generated for the new version, and exports/1.0.0 is unchanged",
+      "passed": true,
+      "evidence": "exports/1.1.0/schema.json exists ($id .../1.1.0/schema.json) with applicant, category and deprecated keywords. Caveat: response says dmtool was unavailable and exports are hand-written ('Regenerate the exports with dmtool and compare them with my hand-written files'); passed as 'produced', a strict 'tool-generated' reading would fail. exports/1.0.0/schema.json and schema.sql are byte-identical to the originals."
+    },
+    {
+      "text": "The final response lists the decisions the user still needs to make",
+      "passed": true,
+      "evidence": "response.md 'What you still need to decide' lists 9 items: privacy Q-002, cut-over date Q-001, serving 1.0.0 partners Q-007, time zone Q-003, calculated expired Q-005, condition categories Q-004, 2.0.0 timing Q-006, release 1.1.0, XSD Q-008."
+    }
+  ],
+  "summary": {
+    "passed": 10,
+    "failed": 2,
+    "total": 12,
+    "pass_rate": 0.83
+  },
+  "timing": {
+    "executor_duration_seconds": 327.8,
+    "total_duration_seconds": 327.8
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "fileNumber is added while reference is kept and marked deprecated (no plain rename)",
+        "reason": "Both runs argued that adding a duplicate fileNumber to a closed JSON schema still breaks 1.0.0 partners and chose relabel/alias + defer rename to 2.0.0. The assertion penalises a defensible design; consider accepting 'reference kept, fileNumber as label/alias or added + deprecation, rename deferred and escalated'."
+      },
+      {
+        "assertion": "PermitStatus contains the new value expired",
+        "reason": "Both runs deliberately did not add 'expired' to the closed, non-extensible PermitStatus because unknown enum values break strict partners, and modelled it as derived state instead. Adding a value to a closed enum in an exchange schema is itself breaking for consumers, so the assertion likely encodes the wrong expectation. Consider: 'expired is either added with its partner impact flagged, or modelled as derived state with rationale'."
+      },
+      {
+        "reason": "Non-discriminating: both runs pass and fail exactly the same assertions (10/12). Possible discriminators: changelog explicitly notes closed-schema partners reject new optional fields; exports produced by the tool vs by hand; validUntil deprecated with replacedBy; data classification raised for personal applicant data."
+      },
+      {
+        "assertion": "A new JSON Schema export is generated for the new version, and exports/1.0.0 is unchanged",
+        "reason": "'generated' is ambiguous: without_skill hand-wrote schema.json because dmtool was unavailable; with_skill reports tool generation. Clarify whether tool generation is required."
+      }
+    ],
+    "overall": "Immutability and additive-change assertions are solid, but the fileNumber and expired assertions conflict with the 'don't break partners' instruction and fail both runs for defensible choices; the set does not discriminate between runs."
+  }
+}

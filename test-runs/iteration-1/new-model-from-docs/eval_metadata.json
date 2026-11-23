@@ -1,0 +1,17 @@
+{
+  "eval_name": "new-model-from-docs",
+  "prompt": "Hi! We need a proper data model for our new urban tree cadastre. The requirements doc and the dump of our legacy schema are attached. Target is PostgreSQL/PostGIS for the app, plus a JSON Schema for the monthly exchange file to the regional agency. I'm in meetings all day so I can't answer questions right now \u2014 please make sensible assumptions, write them down so I can check them later, and give me a complete first draft including the generated schemas. Put everything in a datamodel/ folder.",
+  "assertions": [
+    "A canonical, implementation-neutral model file exists in datamodel/, separate from the generated PostgreSQL DDL and JSON Schema",
+    "Assumptions and/or open questions are written to a file in datamodel/",
+    "Species is modelled as a managed, extensible code list or reference table rather than free text",
+    "Inspection records are protected from deletion and have an audit trail (who changed what, when)",
+    "Corrections of a tree's location are historised so the previous location and the correction time can be retrieved",
+    "Felled trees are kept with felling date and reason, and a felled tree can be linked to one or more replacement trees",
+    "The tree location is a PostGIS Point geometry with SRID 25832 and has a spatial (GiST) index",
+    "Defects are modelled as multi-valued entries each with a severity (low/medium/high), not as comma-separated text",
+    "Expected volumes (trees, inspections per year, measures per year) are recorded in the model documentation",
+    "Inspector names are flagged as personal data and excluded from or marked for the open data export",
+    "The generated JSON Schema is valid JSON and a valid JSON Schema"
+  ]
+}

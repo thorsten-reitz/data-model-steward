@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "http://example.org/airquality/2.1/0.1.0/schema.json",
+  "title": "Air Quality Observation Model",
+  "description": "Air quality monitoring stations, their sampling points (one pollutant measured at a station) and the time-series observations they produce, as delivered by partners.",
+  "$ref": "#/$defs/ObservationCollection",
+  "$defs": {
+    "StationKind": {
+      "description": "Classification of a station by the dominant emission sources influencing it.",
+      "enum": [
+        "traffic",
+        "industrial",
+        "background"
+      ]
+    },
+    "Pollutant": {
+      "description": "Pollutant (observed property) measured at a sampling point. Code from the EEA pollutant vocabulary.",
+      "type": "string",
+      "examples": [
+        "NO2",
+        "PM10",
+        "PM2.5",
+        "O3",
+        "SO2",
+        "CO"
+      ],
+      "$comment": "extensible code list; known values in examples"
+    },
+    "ConcentrationUnit": {
+      "description": "Unit of measure of the observed values of a sampling point.",
+      "type": "string",
+      "examples": [
+        "ug.m-3",
+        "mg.m-3"
+      ],
+      "$comment": "extensible code list; known values in examples"
+    },
+    "ObservationValidity": {
+      "description": "Validity flag of a single observation (EEA validity code list).",
+      "enum": [
+        -99,
+        -1,
+        1,
+        2,
+        3
+      ]
+    },
+    "VerificationStatus": {
+      "description": "Verification status of a single observation (EEA verification code list).",
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "Position": {
+      "description": "Geographic position of a station.",
+      "type": "object",
+      "properties": {
+        "lat": {
+          "description": "Latitude in decimal degrees, WGS 84 (EPSG:4326) assumed (A-005).",
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90,
+          "$comment": "unit: deg"
+        },
+        "lon": {
+          "description": "Longitude in decimal degrees, WGS 84 (EPSG:4326) assumed (A-005).",
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180,
+          "$comment": "unit: deg"
+        },
+        "altitude": {
+          "description": "Altitude of the station in metres above mean sea level (unit and datum assumed, A-005). Absent and nil both mean unknown (A-006).",
+          "anyOf": [
+            {
+              "type": "number",
+              "$comment": "unit: m"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "lat",
+        "lon"
+      ],
+      "additionalProperties": false
+    },
+    "ObservationCollection": {
+      "description": "A partner delivery: the exchange envelope that bundles stations with their sampling points and observations. It has no identity of its own in S1.",
+      "type": "object",
+      "properties": {
+        "station": {
+          "description": "Stations reported in a delivery (S1 element 'station', 1..unbounded).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Station"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "station"
+      ],
+      "unevaluatedProperties": false
+    },
+    "Station": {
+      "description": "A fixed monitoring station at which air quality is measured.",
+      "type": "object",
+      "properties": {
+        "stationCode": {
+          "description": "Stable code of the station, unique across partners (assumed, A-001).",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable name of the station.",
+          "type": "string"
+        },
+        "operator": {
+          "description": "Organisation operating the station (free text in S1).",
+          "type": "string"
+        },
+        "position": {
+          "description": "Location of the station.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/Position"
+            }
+          ]
+        },
+        "stationType": {
+          "description": "Station classification by dominant emission source.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/StationKind"
+            }
+          ]
+        },
+        "sampling": {
+          "description": "Sampling points of a station (S1 element 'sampling', 1..unbounded).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SamplingPoint"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "stationCode",
+        "name",
+        "position",
+        "stationType",
+        "sampling"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-007: The unit of a sampling point must be appropriate for its pollutant (e.g. CO in mg.m-3, others in ug.m-3)."
+    },
+    "SamplingPoint": {
+      "description": "The measurement of one pollutant at one station (instrument/inlet), in one unit, producing a time series of observations.",
+      "type": "object",
+      "properties": {
+        "samplingPointId": {
+          "description": "Identifier of the sampling point. Taken from the xs:ID attribute 'id' in S1; assumed stable across deliveries (A-001, Q-001).",
+          "type": "string",
+          "maxLength": 100
+        },
+        "pollutant": {
+          "description": "Pollutant measured, code from the EEA pollutant vocabulary (e.g. NO2, PM10, O3).",
+          "allOf": [
+            {
+              "$ref": "#/$defs/Pollutant"
+            }
+          ]
+        },
+        "unit": {
+          "description": "Unit of measure of all observation values of this sampling point.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/ConcentrationUnit"
+            }
+          ]
+        },
+        "observation": {
+          "description": "Observations of a sampling point (S1 element 'observation', 0..unbounded).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Observation"
+          }
+        }
+      },
+      "required": [
+        "samplingPointId",
+        "pollutant",
+        "unit"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-006: samplingPointId must be unique across all deliveries (not only within one XML document as xs:ID guarantees)."
+    },
+    "Observation": {
+      "description": "One aggregated measurement value of a sampling point for a time interval (normally one hour).",
+      "type": "object",
+      "properties": {
+        "begin": {
+          "description": "Start of the measurement interval (inclusive). Must carry a time-zone offset (C-002).",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "description": "End of the measurement interval (exclusive). Must carry a time-zone offset (C-002).",
+          "type": "string",
+          "format": "date-time"
+        },
+        "value": {
+          "description": "Measured value in the unit of the sampling point; nil when no value is available (C-004).",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validity": {
+          "description": "Validity flag of the value.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/ObservationValidity"
+            }
+          ]
+        },
+        "verification": {
+          "description": "Verification status of the value.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/VerificationStatus"
+            }
+          ]
+        }
+      },
+      "required": [
+        "begin",
+        "end",
+        "validity",
+        "verification"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-001: end must be after begin.; C-002: begin and end must include an explicit time-zone offset (S1 xs:dateTime allows local times without offset).; C-003: Within one sampling point, observation intervals must not overlap (in particular no two observations with the same begin).; C-004: If value is nil, validity must be a 'not valid' code (-1 or -99).; C-005: value must be a finite number (no NaN/INF, which xs:double allows but JSON cannot represent)."
+    }
+  }
+}

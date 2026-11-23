@@ -1,0 +1,161 @@
+{
+  "header": {
+    "schemaVersion": "1.0.0",
+    "exportType": "delta",
+    "periodStart": "2026-10-01",
+    "periodEnd": "2026-10-31",
+    "generatedAt": "2026-11-01T02:15:00+01:00",
+    "sender": "CITY-PARKS-DEPT",
+    "crs": "EPSG:25832",
+    "counts": { "trees": 3, "inspections": 2, "measures": 2 }
+  },
+  "codeLists": {
+    "species": [
+      { "id": 1, "botanicalName": "Tilia cordata", "genus": "Tilia", "commonNameDe": "Winter-Linde", "isActive": true, "replacedById": null },
+      { "id": 2, "botanicalName": "Acer platanoides 'Emerald Queen'", "genus": "Acer", "commonNameDe": "Spitz-Ahorn", "isActive": true, "replacedById": null }
+    ],
+    "defectTypes": [
+      { "code": "deadwood", "labelDe": "Totholz", "labelEn": "Deadwood", "isActive": true },
+      { "code": "cavity", "labelDe": "Höhlung", "labelEn": "Cavity", "isActive": true },
+      { "code": "root_damage", "labelDe": "Wurzelschaden", "labelEn": "Root damage", "isActive": true }
+    ],
+    "measureTypes": [
+      { "code": "pruning", "labelDe": "Kronenpflege / Schnitt", "labelEn": "Pruning", "isFelling": false, "isActive": true },
+      { "code": "felling", "labelDe": "Fällung", "labelEn": "Felling", "isFelling": true, "isActive": true }
+    ],
+    "fellingReasons": [
+      { "code": "traffic_safety", "labelDe": "Verkehrssicherheit", "labelEn": "Traffic safety", "isActive": true }
+    ],
+    "vitalityClasses": [
+      { "code": 1, "labelDe": "vital", "labelEn": "vital" },
+      { "code": 2, "labelDe": "leicht geschwächt", "labelEn": "slightly impaired" },
+      { "code": 3, "labelDe": "deutlich geschwächt", "labelEn": "clearly impaired" },
+      { "code": 4, "labelDe": "stark geschwächt", "labelEn": "severely impaired" },
+      { "code": 5, "labelDe": "absterbend / abgestorben", "labelEn": "dying / dead" }
+    ],
+    "measurePriorities": [
+      { "code": 1, "labelDe": "sofort", "labelEn": "immediate" },
+      { "code": 2, "labelDe": "dringend", "labelEn": "urgent" },
+      { "code": 3, "labelDe": "normal", "labelEn": "normal" }
+    ]
+  },
+  "trees": [
+    {
+      "treeId": "3f1c2b9e-7d4a-4c1e-9b2f-0a1b2c3d4e5f",
+      "treeNumber": 10423,
+      "speciesId": 1,
+      "botanicalName": "Tilia cordata",
+      "plantingYear": 1978,
+      "location": { "easting": 512345.67, "northing": 5402345.12, "validSince": "2026-10-14T09:12:00+02:00" },
+      "previousLocations": [
+        { "easting": 512349.10, "northing": 5402341.80, "validFrom": "2019-05-02T10:00:00+02:00", "validTo": "2026-10-14T09:12:00+02:00" }
+      ],
+      "locationUnit": { "type": "streetSegment", "id": 811, "code": "HAUPT-0040", "name": "Hauptstraße" },
+      "status": "felled",
+      "felling": { "date": "2026-10-20", "reasonCode": "traffic_safety", "measureId": "8a7b6c5d-4e3f-4a2b-9c1d-0e1f2a3b4c5d", "compensationTreesRequired": 2 },
+      "replacesTreeIds": [],
+      "isLegacyImport": true,
+      "createdAt": "2004-03-11T00:00:00+01:00",
+      "updatedAt": "2026-10-20T15:40:00+02:00"
+    },
+    {
+      "treeId": "c0ffee00-1234-4abc-8def-001122334455",
+      "treeNumber": 180311,
+      "speciesId": 2,
+      "botanicalName": "Acer platanoides 'Emerald Queen'",
+      "plantingYear": 2026,
+      "location": { "easting": 512351.00, "northing": 5402338.40, "validSince": "2026-10-28T11:05:00+01:00" },
+      "previousLocations": [],
+      "locationUnit": { "type": "streetSegment", "id": 811, "code": "HAUPT-0040", "name": "Hauptstraße" },
+      "status": "living",
+      "felling": null,
+      "replacesTreeIds": ["3f1c2b9e-7d4a-4c1e-9b2f-0a1b2c3d4e5f"],
+      "isLegacyImport": false,
+      "createdAt": "2026-10-28T11:05:00+01:00",
+      "updatedAt": "2026-10-28T11:05:00+01:00"
+    },
+    {
+      "treeId": "d1d2d3d4-0000-4111-8222-933344455566",
+      "treeNumber": 180312,
+      "speciesId": 1,
+      "botanicalName": "Tilia cordata",
+      "plantingYear": null,
+      "location": { "easting": 513010.55, "northing": 5401987.00, "validSince": "2026-10-29T08:30:00+01:00" },
+      "previousLocations": [],
+      "locationUnit": { "type": "park", "id": 17, "code": "P-017", "name": "Stadtpark" },
+      "status": "living",
+      "felling": null,
+      "replacesTreeIds": [],
+      "isLegacyImport": false,
+      "createdAt": "2026-10-29T08:30:00+01:00",
+      "updatedAt": "2026-10-29T08:30:00+01:00"
+    }
+  ],
+  "inspections": [
+    {
+      "inspectionId": "5b6c7d8e-9f00-4a1b-8c2d-3e4f5a6b7c8d",
+      "treeId": "3f1c2b9e-7d4a-4c1e-9b2f-0a1b2c3d4e5f",
+      "date": "2026-10-14",
+      "inspector": "P-3FA9C01B7E",
+      "trunkCircumferenceCm": 214,
+      "crownDiameterM": 11.5,
+      "heightM": 18.0,
+      "vitalityClass": 4,
+      "defects": [
+        { "code": "cavity", "severity": "high" },
+        { "code": "deadwood", "severity": "medium" }
+      ],
+      "isLegacyImport": false,
+      "createdAt": "2026-10-14T18:02:11+02:00",
+      "updatedAt": "2026-10-14T18:02:11+02:00"
+    },
+    {
+      "inspectionId": "6c7d8e9f-0a1b-4c2d-9e3f-4a5b6c7d8e9f",
+      "treeId": "d1d2d3d4-0000-4111-8222-933344455566",
+      "date": "2026-10-29",
+      "inspector": "P-3FA9C01B7E",
+      "trunkCircumferenceCm": 95,
+      "crownDiameterM": 6.0,
+      "heightM": 9.5,
+      "vitalityClass": 1,
+      "defects": [],
+      "isLegacyImport": false,
+      "createdAt": "2026-10-29T17:45:00+01:00",
+      "updatedAt": "2026-10-29T17:45:00+01:00"
+    }
+  ],
+  "measures": [
+    {
+      "measureId": "8a7b6c5d-4e3f-4a2b-9c1d-0e1f2a3b4c5d",
+      "treeId": "3f1c2b9e-7d4a-4c1e-9b2f-0a1b2c3d4e5f",
+      "inspectionId": "5b6c7d8e-9f00-4a1b-8c2d-3e4f5a6b7c8d",
+      "typeCode": "felling",
+      "priority": 1,
+      "orderedOn": "2026-10-15",
+      "dueOn": "2026-10-22",
+      "status": "done",
+      "completedOn": "2026-10-20",
+      "contractor": { "id": 4, "name": "Baumpflege Muster GmbH" },
+      "cancelledOn": null,
+      "isLegacyImport": false,
+      "createdAt": "2026-10-15T08:10:00+02:00",
+      "updatedAt": "2026-10-20T15:38:00+02:00"
+    },
+    {
+      "measureId": "9b8c7d6e-5f4a-4b3c-8d2e-1f0a9b8c7d6e",
+      "treeId": "3f1c2b9e-7d4a-4c1e-9b2f-0a1b2c3d4e5f",
+      "inspectionId": "5b6c7d8e-9f00-4a1b-8c2d-3e4f5a6b7c8d",
+      "typeCode": "pruning",
+      "priority": 2,
+      "orderedOn": "2026-10-15",
+      "dueOn": "2026-11-15",
+      "status": "cancelled",
+      "completedOn": null,
+      "contractor": null,
+      "cancelledOn": "2026-10-20",
+      "isLegacyImport": false,
+      "createdAt": "2026-10-15T08:12:00+02:00",
+      "updatedAt": "2026-10-20T15:39:00+02:00"
+    }
+  ]
+}

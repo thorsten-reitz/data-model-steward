@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: reverse-engineer-xsd
+expected_outcome: |
+  A canonical model derived from the XSD (Station, SamplingPoint, Observation, Position as a value
+  type, StationKind enumeration, pollutant as an extensible/external code list), with the XSD as a
+  registered source, ambiguities flagged (validity/verification int codes, unit as free text, xs:ID
+  identifiers, lat/lon without CRS, nillable value), volumes recorded (~21 M observations/year), and
+  a JSON Schema consistent with the model.
+context:
+  scaffold_script: place-files.sh

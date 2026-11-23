@@ -1,0 +1,285 @@
+# Canonical, implementation-neutral data model for air quality observations.
+# Reverse-engineered from the partner exchange XSD v2.1 (S1).
+# Format: data-model-steward references/model-format.md
+# Check:  python <skill>/scripts/dmtool.py validate datamodel/model.yaml
+#
+# Element and type names deliberately follow XSD 2.1 (D-002) so the generated XSD stays
+# structurally compatible. Elements marked `status: proposed` rest on assumptions (A-xxx in
+# open-questions.md) and must be confirmed before a release.
+
+model:
+  name: AirQualityObservations
+  title: Air Quality Observation Model
+  description: >-
+    Air quality monitoring stations, their sampling points (one pollutant measured at a
+    station) and the time-series observations they produce, as delivered by partners.
+  namespace: http://example.org/airquality/2.1   # = XSD 2.1 targetNamespace (D-003, Q-010)
+  prefix: aq
+  version: 0.1.0
+  status: draft
+  purposes: [exchange, api]
+  targets: [xsd, jsonschema]
+  conventions:
+    language: en
+    naming: "XSD 2.1 element names kept as canonical names (D-002)"
+  standards:
+    - "EEA / Eionet air quality vocabularies (pollutant, concentration unit, validity, verification) — referenced by S1, assumed for codes (A-002..A-004)"
+  sources: [S1, S2]
+  exportOptions:
+    jsonschema: {root: ObservationCollection, closed: true}
+    xsd: {compatTarget: "S1 (XSD 2.1)", postProcess: "datamodel/tools/xsd_compat_2_1.py (D-005)"}
+
+enumerations:
+  StationKind:
+    description: Classification of a station by the dominant emission sources influencing it.
+    extensible: false
+    values:
+      - {code: traffic, description: Pollution level dominated by emissions from nearby traffic.}
+      - {code: industrial, description: Pollution level dominated by industrial sources.}
+      - {code: background, description: Pollution level not dominated by a single source.}
+    sources: [S1]
+    notes: "S1 StationKindType. EEA also uses an area classification (urban/suburban/rural) which S1 lacks (Q-008)."
+
+  Pollutant:
+    description: Pollutant (observed property) measured at a sampling point. Code from the EEA pollutant vocabulary.
+    extensible: true
+    authority: http://dd.eionet.europa.eu/vocabulary/aq/pollutant
+    values:
+      - {code: NO2, label: Nitrogen dioxide}
+      - {code: PM10, label: Particulate matter < 10 µm}
+      - {code: PM2.5, label: Particulate matter < 2.5 µm, status: proposed}
+      - {code: O3, label: Ozone}
+      - {code: SO2, label: Sulphur dioxide, status: proposed}
+      - {code: CO, label: Carbon monoxide, status: proposed}
+    sources: [S1]
+    decisions: [D-006]
+    notes: "S1 types this as free xs:string; only NO2, PM10, O3 are named as examples. The other three are assumed to complete the '6 pollutants' (A-002, Q-003)."
+
+  ConcentrationUnit:
+    description: Unit of measure of the observed values of a sampling point.
+    extensible: true
+    authority: http://dd.eionet.europa.eu/vocabulary/uom/concentration
+    values:
+      - {code: ug.m-3, label: µg/m³, status: proposed}
+      - {code: mg.m-3, label: mg/m³, status: proposed}
+    sources: [S1]
+    decisions: [D-006]
+    notes: "S1 types unit as free xs:string with no list; spelling of codes assumed from EEA (A-003, Q-004)."
+
+  ObservationValidity:
+    description: Validity flag of a single observation (EEA validity code list).
+    extensible: false
+    status: proposed
+    values:
+      - {code: -99, label: Not valid due to station maintenance or calibration}
+      - {code: -1, label: Not valid}
+      - {code: 1, label: Valid}
+      - {code: 2, label: Valid, below detection limit}
+      - {code: 3, label: Valid, below detection limit and replaced by 0.5 × detection limit}
+    sources: [S1]
+    decisions: [D-007]
+    notes: "S1 has bare xs:int without documentation; EEA meaning assumed (A-004, Q-005)."
+
+  VerificationStatus:
+    description: Verification status of a single observation (EEA verification code list).
+    extensible: false
+    status: proposed
+    values:
+      - {code: 1, label: Verified}
+      - {code: 2, label: Preliminary verified}
+      - {code: 3, label: Not verified}
+    sources: [S1]
+    decisions: [D-007]
+    notes: "S1 has bare xs:int without documentation; EEA meaning assumed (A-004, Q-005)."
+
+datatypes:
+  Position:
+    description: Geographic position of a station.
+    attributes:
+      lat:
+        type: decimal
+        description: Latitude in decimal degrees, WGS 84 (EPSG:4326) assumed (A-005).
+        constraints: {min: -90, max: 90, unit: deg}
+      lon:
+        type: decimal
+        description: Longitude in decimal degrees, WGS 84 (EPSG:4326) assumed (A-005).
+        constraints: {min: -180, max: 180, unit: deg}
+      altitude:
+        type: decimal
+        multiplicity: "0..1"
+        voidable: true
+        description: Altitude of the station in metres above mean sea level (unit and datum assumed, A-005). Absent and nil both mean unknown (A-006).
+        constraints: {unit: m}
+    sources: [S1]
+    decisions: [D-004]
+    notes: "Kept as lat/lon/altitude datatype rather than neutral geometry so the XSD 2.1 structure is preserved (D-004)."
+
+classes:
+  ObservationCollection:
+    description: >-
+      A partner delivery: the exchange envelope that bundles stations with their sampling
+      points and observations. It has no identity of its own in S1.
+    identifier: null
+    history: {mode: none}
+    nfr:
+      volume: "1 delivery per partner per reporting interval (frequency unknown, Q-009)"
+      payloadSize: "full day for all stations ≈ 57,600 observations ≈ 8–10 MB JSON / 12–15 MB XML"
+      notes: "Too large as a single API response — the API should expose stations, sampling points and paged observations as separate resources (D-008)."
+    attributes: {}
+    sources: [S1]
+    decisions: [D-001]
+    notes: "S1 global element ObservationCollection. No delivery metadata (sender, creation time, period, version) — Q-007."
+
+  Station:
+    description: A fixed monitoring station at which air quality is measured.
+    identifier: {attribute: stationCode, strategy: natural, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr:
+      volume: 400
+      growth: stable
+      accessPaths: ["by stationCode", "by stationType", "by bounding box (lat/lon)", "by operator"]
+      classification: public
+    attributes:
+      stationCode:
+        type: string
+        description: Stable code of the station, unique across partners (assumed, A-001).
+        unique: true
+        notes: "S1 also has a mandatory xs:ID attribute 'id' — document-local, not modelled as business data (D-005)."
+      name:
+        type: string
+        description: Human-readable name of the station.
+      operator:
+        type: string
+        multiplicity: "0..1"
+        description: Organisation operating the station (free text in S1).
+      position:
+        type: Position
+        description: Location of the station.
+      stationType:
+        type: StationKind
+        description: Station classification by dominant emission source.
+    sources: [S1]
+    decisions: [D-005]
+
+  SamplingPoint:
+    description: >-
+      The measurement of one pollutant at one station (instrument/inlet), in one unit,
+      producing a time series of observations.
+    identifier: {attribute: samplingPointId, strategy: natural, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr:
+      volume: 2400
+      growth: stable
+      accessPaths: ["by samplingPointId", "by station", "by station + pollutant", "by pollutant"]
+      classification: public
+    attributes:
+      samplingPointId:
+        type: string
+        description: Identifier of the sampling point. Taken from the xs:ID attribute 'id' in S1; assumed stable across deliveries (A-001, Q-001).
+        unique: true
+        constraints: {maxLength: 100}
+        notes: "XSD 2.1: attribute @id (xs:ID, must be an XML NCName: no leading digit, no ':' or spaces). No pattern in the model because XSD regex (implicitly anchored, no ^/$) and JSON Schema regex (unanchored) cannot share one pattern string via the exporter — Q-001, D-005."
+      pollutant:
+        type: Pollutant
+        description: Pollutant measured, code from the EEA pollutant vocabulary (e.g. NO2, PM10, O3).
+      unit:
+        type: ConcentrationUnit
+        description: Unit of measure of all observation values of this sampling point.
+    sources: [S1]
+    decisions: [D-005, D-006]
+
+  Observation:
+    description: One aggregated measurement value of a sampling point for a time interval (normally one hour).
+    identifier: null
+    history: {mode: audit, deletion: logical}
+    nfr:
+      volume: "≈ 57,600/day ≈ 21 M/year (400 stations × 6 pollutants × 24)"
+      growth: "+21 M/year, append-mostly; corrections when verification changes"
+      readWriteRatio: "unknown"
+      accessPaths: ["by sampling point + time range", "by station + pollutant + time range", "latest value per sampling point", "by pollutant + time range (all stations)"]
+      classification: public
+      notes: "Natural key (samplingPoint, begin). For persistence: time partitioning / BRIN on begin."
+    attributes:
+      begin:
+        type: dateTime
+        description: Start of the measurement interval (inclusive). Must carry a time-zone offset (C-002).
+      end:
+        type: dateTime
+        description: End of the measurement interval (exclusive). Must carry a time-zone offset (C-002).
+      value:
+        type: float
+        voidable: true
+        description: Measured value in the unit of the sampling point; nil when no value is available (C-004).
+      validity:
+        type: ObservationValidity
+        description: Validity flag of the value.
+      verification:
+        type: VerificationStatus
+        description: Verification status of the value.
+    sources: [S1]
+    decisions: [D-007]
+
+associations:
+  - name: CollectionStations
+    description: Stations reported in a delivery (S1 element 'station', 1..unbounded).
+    kind: composition
+    from: {class: ObservationCollection, role: collection, multiplicity: "1"}
+    to: {class: Station, role: station, multiplicity: "1..*"}
+    ordered: true
+    sources: [S1]
+    decisions: [D-001, D-002]
+    notes: "Composition only in the exchange view: a station is an independent entity that is repeated in every delivery (D-001)."
+  - name: StationSamplingPoints
+    description: Sampling points of a station (S1 element 'sampling', 1..unbounded).
+    kind: composition
+    from: {class: Station, role: station, multiplicity: "1"}
+    to: {class: SamplingPoint, role: sampling, multiplicity: "1..*"}
+    ordered: true
+    sources: [S1]
+    decisions: [D-002]
+  - name: SamplingPointObservations
+    description: Observations of a sampling point (S1 element 'observation', 0..unbounded).
+    kind: composition
+    from: {class: SamplingPoint, role: samplingPoint, multiplicity: "1"}
+    to: {class: Observation, role: observation, multiplicity: "0..*"}
+    ordered: true
+    sources: [S1]
+    decisions: [D-002]
+
+constraints:
+  - id: C-001
+    appliesTo: Observation
+    description: end must be after begin.
+    expression: "end > begin"
+    sources: [S1]
+    status: proposed
+  - id: C-002
+    appliesTo: Observation
+    description: begin and end must include an explicit time-zone offset (S1 xs:dateTime allows local times without offset).
+    expression: "hasTimezone(begin) and hasTimezone(end)"
+    status: proposed
+  - id: C-003
+    appliesTo: Observation
+    description: Within one sampling point, observation intervals must not overlap (in particular no two observations with the same begin).
+    expression: "unique(samplingPoint, begin); no overlap of [begin, end) per samplingPoint"
+    status: proposed
+  - id: C-004
+    appliesTo: Observation
+    description: If value is nil, validity must be a 'not valid' code (-1 or -99).
+    expression: "value = nil implies validity in (-1, -99)"
+    status: proposed
+  - id: C-005
+    appliesTo: Observation
+    description: value must be a finite number (no NaN/INF, which xs:double allows but JSON cannot represent).
+    expression: "isFinite(value)"
+    status: proposed
+  - id: C-006
+    appliesTo: SamplingPoint
+    description: samplingPointId must be unique across all deliveries (not only within one XML document as xs:ID guarantees).
+    expression: "globallyUnique(samplingPointId)"
+    status: proposed
+  - id: C-007
+    appliesTo: Station
+    description: The unit of a sampling point must be appropriate for its pollutant (e.g. CO in mg.m-3, others in ug.m-3).
+    expression: "unitAllowedFor(sampling.pollutant, sampling.unit)"
+    status: proposed

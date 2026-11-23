@@ -1,0 +1,16 @@
+{
+  "eval_name": "reverse-engineer-xsd",
+  "prompt": "Our partners send us air quality data using the attached XSD (version 2.1). We're building a REST API and want a canonical data model behind it, so we can generate both the XSD-compatible structure and a JSON Schema for the API from one place. Please reverse-engineer the XSD into a data model, flag anything that's ambiguous or questionable in the XSD, and generate the JSON Schema. Each station produces about 24 hourly values per pollutant per day, ~400 stations, 6 pollutants. Just go ahead with your best judgement \u2014 I'll review afterwards.",
+  "assertions": [
+    "A canonical model file exists separate from the generated JSON Schema",
+    "Position is modelled as a value type/datatype without its own identity",
+    "Pollutant is modelled as an extensible or externally governed code list, not a closed enum or an undocumented plain string",
+    "The station kind is modelled as a closed enumeration with traffic, industrial and background",
+    "The meaning of the integer validity and verification codes is flagged as ambiguous",
+    "The missing coordinate reference system for lat/lon is flagged",
+    "Identifier issues are flagged (xs:ID values only unique within one document, and/or overlap of id and stationCode)",
+    "The observation volume is estimated at roughly 21 million per year (400 x 6 x 24 x 365) and recorded",
+    "The high observation volume leads to an API design note (e.g. observations as a separate, paginated resource rather than nested in station documents)",
+    "The generated JSON Schema is a valid JSON Schema and allows null for the observation value"
+  ]
+}

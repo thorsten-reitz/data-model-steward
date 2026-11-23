@@ -1,0 +1,30 @@
+{
+  "station": [
+    {
+      "stationCode": "XX0001A",
+      "name": "Example Ring Road",
+      "operator": "Example Environment Agency",
+      "position": {"lat": 52.5163, "lon": 13.3777, "altitude": 34},
+      "stationType": "traffic",
+      "sampling": [
+        {
+          "samplingPointId": "SPO_XX0001A_NO2_1",
+          "pollutant": "NO2",
+          "unit": "ug.m-3",
+          "observation": [
+            {"begin": "2026-11-22T00:00:00+01:00", "end": "2026-11-22T01:00:00+01:00", "value": 41.7, "validity": 1, "verification": 3},
+            {"begin": "2026-11-22T01:00:00+01:00", "end": "2026-11-22T02:00:00+01:00", "value": null, "validity": -99, "verification": 3}
+          ]
+        },
+        {
+          "samplingPointId": "SPO_XX0001A_CO_1",
+          "pollutant": "CO",
+          "unit": "mg.m-3",
+          "observation": [
+            {"begin": "2026-11-22T00:00:00+01:00", "end": "2026-11-22T01:00:00+01:00", "value": 0.4, "validity": 1, "verification": 3}
+          ]
+        }
+      ]
+    }
+  ]
+}
