@@ -70,8 +70,16 @@ Gaps:        no information on history requirements → ask in Phase 4
   attributes, `xs:keyref` or `IDREF` are references.
 - `xs:choice` → mutually exclusive attributes plus a constraint, or a datatype
   hierarchy; note the choice explicitly, it does not map 1:1 to all targets.
-- Keep the XSD's `targetNamespace` and element names in `notes`/`names` if the model must
-  stay compatible with it.
+- If the model must stay compatible with the XSD, reproduce it:
+  - keep its `targetNamespace` as `model.namespace`;
+  - map deviating element names with `names: {xsd: …}`;
+  - map XML attributes (e.g. `@id` of type `xs:ID`) with `xml: {attribute: true, type: "xs:ID"}`;
+  - map numeric codes with an enumeration `codeType: integer`, or keep the plain type with
+    `xml.type` if the XSD doesn't restrict it.
+
+  Then check that a sample instance is valid against both the original and the generated XSD.
+- `xs:documentation xml:lang` annotations in several languages map to multilingual
+  `description`s; declare those languages in `model.languages.documentation`.
 
 ### JSON Schema / OpenAPI
 - `$defs`/`components.schemas` objects → classes or datatypes (classes if they carry an

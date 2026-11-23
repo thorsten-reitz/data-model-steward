@@ -1,19 +1,25 @@
-# Canonical, implementation-neutral data model.
+# Canonical, implementation-neutral data model — worked example.
 # Format: references/model-format.md  ·  Check: python scripts/dmtool.py validate model.yaml
-# This template doubles as a worked example — replace its content with the real model.
+# Start a new model with `dmtool.py init`; copy patterns from here.
+# Documentation is bilingual (en/de) to show multilingual texts; identifiers are English.
 
 model:
   name: PermitRegistry
-  title: Permit Registry Model
-  description: Permits issued by authorities, with their conditions.
+  title: {en: Permit Registry Model, de: Datenmodell Genehmigungsregister}
+  description:
+    en: Permits issued by authorities, with their conditions.
+    de: Von Behörden erteilte Genehmigungen mit ihren Auflagen.
   namespace: https://example.org/models/permit-registry
   prefix: pr
   version: 0.1.0
   status: draft
   purposes: [persistence, exchange]
   targets: [postgres, jsonschema, xsd]
-  conventions:
-    language: en
+  languages:
+    identifiers: en
+    documentation: [en, de]       # first = default language for exports
+  compatibility:
+    consumers: strict             # exchange partners validate against the released schema
   standards: []
   sources: [S1]
   exportOptions:
@@ -21,37 +27,60 @@ model:
 
 enumerations:
   PermitStatus:
-    description: Lifecycle status of a permit.
+    description: {en: Lifecycle status of a permit., de: Bearbeitungsstand einer Genehmigung.}
     extensible: false
     values:
-      - {code: applied, description: Application received, not yet decided.}
-      - {code: granted}
-      - {code: refused}
-      - {code: revoked}
+      - code: applied
+        label: {en: Applied, de: Beantragt}
+        description: {en: "Application received, not yet decided.", de: "Antrag eingegangen, noch nicht entschieden."}
+      - {code: granted, label: {en: Granted, de: Erteilt}}
+      - {code: refused, label: {en: Refused, de: Abgelehnt}}
+      - {code: revoked, label: {en: Revoked, de: Widerrufen}}
     sources: [S1]
 
 datatypes:
   Address:
-    description: Postal address.
+    description: {en: Postal address., de: Postanschrift.}
     attributes:
-      street: {type: string, multiplicity: "0..1", constraints: {maxLength: 200}}
-      postalCode: {type: string, constraints: {maxLength: 10}}
-      city: {type: string, constraints: {maxLength: 100}}
+      street:
+        type: string
+        multiplicity: "0..1"
+        description: {en: Street and house number., de: Straße und Hausnummer.}
+        constraints: {maxLength: 200}
+      postalCode:
+        type: string
+        description: {en: Postal code., de: Postleitzahl.}
+        constraints: {maxLength: 10}
+      city:
+        type: string
+        description: {en: City., de: Ort.}
+        constraints: {maxLength: 100}
 
 classes:
   Authority:
-    description: Public body competent to issue permits.
+    description: {en: Public body competent to issue permits., de: Für die Erteilung zuständige Behörde.}
     identifier: {attribute: authorityId, strategy: uri, external: true}
     history: {mode: audit}
     nfr: {volume: 500, growth: stable}
     attributes:
-      authorityId: {type: uri, description: Persistent URI of the authority., unique: true}
-      name: {type: string, constraints: {maxLength: 200}}
-      address: {type: Address}
+      authorityId:
+        type: uri
+        unique: true
+        description: {en: Persistent URI of the authority., de: Dauerhafter URI der Behörde.}
+      name:
+        type: string
+        description: {en: Official name., de: Amtliche Bezeichnung.}
+        constraints: {maxLength: 200}
+      address:
+        type: Address
+        description: {en: Postal address of the authority., de: Postanschrift der Behörde.}
     sources: [S1]
 
   Permit:
-    description: Official authorisation granted to an applicant for an activity at a site.
+    label: {en: Permit, de: Genehmigung}
+    description:
+      en: Official authorisation granted to an applicant for an activity at a site.
+      de: Behördliche Erlaubnis für eine Tätigkeit an einem Standort.
     identifier: {attribute: permitId, strategy: uuid, external: true}
     history: {mode: versioned, validTime: true, transactionTime: false, deletion: logical}
     nfr:
@@ -60,34 +89,58 @@ classes:
       accessPaths: ["by permitId", "by reference", "by site within bounding box"]
       classification: internal
     attributes:
-      permitId: {type: uuid, description: Stable identifier of the permit., unique: true}
+      permitId:
+        type: uuid
+        unique: true
+        description: {en: Stable identifier of the permit., de: Dauerhafte Kennung der Genehmigung.}
       reference:
         type: string
-        description: Human-readable file number used by the authority.
         unique: true
+        label: {en: File number, de: Aktenzeichen}
+        description: {en: Human-readable file number used by the authority., de: Aktenzeichen der Behörde.}
         constraints: {maxLength: 40}
-      status: {type: PermitStatus}
-      decisionDate: {type: date, multiplicity: "0..1"}
-      validUntil: {type: date, multiplicity: "0..1", voidable: true}
+      status:
+        type: PermitStatus
+        description: {en: Current status., de: Aktueller Bearbeitungsstand.}
+      decisionDate:
+        type: date
+        multiplicity: "0..1"
+        description: {en: Date of the decision., de: Datum der Entscheidung.}
+      validUntil:
+        type: date
+        multiplicity: "0..1"
+        voidable: true
+        description: {en: Last day of validity; nil if unknown., de: Letzter Gültigkeitstag; nil wenn unbekannt.}
       siteLocation:
         type: geometry
+        description: {en: Area the permit applies to., de: "Fläche, für die die Genehmigung gilt."}
         constraints: {geometryType: Polygon, crs: "EPSG:4326"}
-      keywords: {type: string, multiplicity: "0..*", constraints: {maxLength: 50}}
+      keywords:
+        type: string
+        multiplicity: "0..*"
+        description: {en: Free keywords., de: Freie Schlagwörter.}
+        constraints: {maxLength: 50}
     sources: [S1]
 
   PermitCondition:
-    description: Obligation attached to a permit.
+    description: {en: Obligation attached to a permit., de: Auflage zu einer Genehmigung.}
     attributes:
-      text: {type: text}
-      dueDate: {type: date, multiplicity: "0..1"}
+      text:
+        type: text
+        description: {en: Wording of the condition., de: Wortlaut der Auflage.}
+      dueDate:
+        type: date
+        multiplicity: "0..1"
+        description: {en: Date by which it must be met., de: Frist zur Erfüllung.}
 
 associations:
   - name: PermitIssuedBy
-    description: The authority that issued the permit.
+    description: {en: The authority that issued the permit., de: "Die Behörde, die die Genehmigung erteilt hat."}
     kind: reference
     from: {class: Permit, role: permits, multiplicity: "0..*"}
     to: {class: Authority, role: issuer, multiplicity: "1"}
   - name: PermitConditions
+    description: {en: Conditions attached to the permit., de: Auflagen der Genehmigung.}
     kind: composition
     from: {class: Permit, role: permit, multiplicity: "1"}
     to: {class: PermitCondition, role: conditions, multiplicity: "0..*"}
@@ -96,6 +149,8 @@ associations:
 constraints:
   - id: C-001
     appliesTo: Permit
-    description: validUntil must not be before decisionDate.
+    description: {en: validUntil must not be before decisionDate., de: validUntil darf nicht vor decisionDate liegen.}
     expression: "validUntil >= decisionDate"
+    enforcement: enforced          # enforced | warning | documented
+    scope: all                     # all | new (only data created after the release)
     sources: [S1]

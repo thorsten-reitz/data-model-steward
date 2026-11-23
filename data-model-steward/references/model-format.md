@@ -18,6 +18,8 @@ complete worked example.
 8. `constraints`
 9. Provenance and lifecycle fields (common to all elements)
 10. Naming conventions
+11. Languages and multilingual texts
+12. Target-specific representation (`names`, `xml`)
 
 ## 1. `model` header
 
@@ -32,11 +34,23 @@ model:
   status: draft                   # draft | released
   purposes: [persistence, exchange]   # persistence | exchange | api | analytics | ontology | codegen
   targets: [postgres, jsonschema, xsd]
-  conventions:
-    language: en
+  languages:
+    identifiers: en               # language of class/attribute names
+    documentation: [en, de]       # languages of descriptions and labels; first = default
+  compatibility:
+    consumers: strict             # strict: consumers validate against the released schema (closed content)
+                                  # tolerant: consumers ignore unknown elements/values
+                                  # default: strict if purposes include exchange/api, else tolerant
+    projection: false             # true: the interface serves each consumer the version it implemented
+                                  # (new elements left out), so additions are minor even for strict consumers
   standards: []                   # reference models / standards the model aligns with
   sources: [S1]
+  exportOptions:
+    jsonschema: {root: Permit, closed: true}
 ```
+
+`title` and `description` may be multilingual (section 11). `conventions.language` from
+older models is still read as the documentation language when `languages` is missing.
 
 ## 2. Neutral data types
 
@@ -74,6 +88,7 @@ enumerations:
   PermitStatus:
     description: Lifecycle status of a permit.
     extensible: false        # false = closed enum; true = open code list (values may be added without a model release)
+    codeType: string         # string (default) | integer — e.g. numeric flags like EEA validity -1, 1, 2, 3
     authority: null          # who maintains the list, or URI of an external code list register
     values:
       - code: applied
@@ -147,9 +162,9 @@ classes:
         constraints: {precision: 12, scale: 2, unit: m2}
 ```
 
-Attribute fields: `type` (required), `description`, `multiplicity` (default `"1"`),
+Attribute fields: `type` (required), `description`, `label`, `multiplicity` (default `"1"`),
 `constraints`, `unique`, `voidable`, `derived`, `ordered` (for multi-valued), `default`,
-plus provenance/lifecycle fields.
+`names` and `xml` (section 12), plus provenance/lifecycle fields.
 
 ## 7. `associations`
 
@@ -184,8 +199,15 @@ constraints:
     appliesTo: Permit
     description: validUntil must be after the decision date.
     expression: "validUntil > decisionDate"   # informal; exporters emit it as documentation unless they can translate it
+    enforcement: enforced    # enforced (default) | warning (checked, not rejected) | documented (not checked)
+    scope: all               # all (default) | new — only data created after the release that introduces it
     sources: [S1]
 ```
+
+`enforcement` and `scope` decide compatibility. Adding an enforced rule for all data
+breaks existing data that may violate it. A rule with `scope: new` or
+`enforcement: warning` does not. Example: "every permit must have an applicant" when ~2M
+old permits have none.
 
 ## 9. Provenance and lifecycle fields
 
@@ -210,5 +232,66 @@ nothing unconfirmed slips into a release.
   stable codes from an external list — never change a code once released).
 - Exporters convert case per target (e.g. `snake_case` for PostgreSQL); don't encode
   target-specific names in the canonical model. If a target needs a specific name that
-  cannot be derived, add `names: {postgres: permit_tbl}` on the element.
+  cannot be derived, use `names` (section 12).
 - Use singular nouns for classes; plural role names for multi-valued ends.
+- Identifiers may be in any language, including non-ASCII letters (`Straße`, `länge`).
+  Exporters transliterate them to ASCII (`Strasse`, `laenge`; ä→ae, ö→oe, ü→ue, ß→ss,
+  accents dropped). `validate` lists every transliterated name, so you can set `names`
+  where the result is not what the user wants.
+
+## 11. Languages and multilingual texts
+
+`model.languages.documentation` lists the documentation languages; the first is the
+default. Every human-readable text can be a plain string (meaning the default language)
+or a mapping by language:
+
+```yaml
+description: {en: Postal address., de: Postanschrift.}
+label: {en: File number, de: Aktenzeichen}
+```
+
+Texts that can be translated: `model.title`, `model.description`, and `description` and
+`label` on classes, datatypes, enumerations, enumeration values, attributes, associations
+and constraints. `label` is the human-readable name (form label, column header);
+`description` is the definition.
+
+In flow style (`{en: …, de: …}`), quote any text that contains a comma — otherwise YAML
+splits it, and `validate` reports a "text in undeclared language".
+
+What uses it:
+- `validate` reports texts missing in any declared language. They are warnings in a
+  draft, and errors in a released model and in `dmtool release`.
+- **JSON Schema**: `title`/`description` in the export language (`--lang`, default the
+  first); the other languages go in `x-i18n: {de: {title, description}}`; enumeration
+  labels go in `x-enumLabels: {lang: {code: label}}`.
+- **XSD**: one `xs:documentation xml:lang="…"` per language, also on enumeration values.
+- **PostgreSQL**: `COMMENT ON` and lookup-table labels in the export language. Use
+  `--lang de` to generate a German-commented DDL.
+- **Ontologies** (written by hand, see exports.md): `rdfs:label`/`skos:prefLabel` and
+  `skos:definition` with language tags.
+
+The identifier language (`languages.identifiers`) is documentation for humans. Exports
+never translate identifiers; they only transliterate them.
+
+## 12. Target-specific representation (`names`, `xml`)
+
+Use these only to match an existing wire format or database, or to fix a bad
+transliteration. Record why in `decisions.md`.
+
+```yaml
+attributes:
+  id:
+    type: string
+    names: {json: id, xsd: id, postgres: station_id}   # per-target names (json | xsd | postgres)
+    xml:
+      attribute: true      # XML attribute instead of a child element (simple type, upper bound 1)
+      type: "xs:ID"        # literal XSD type, overrides the mapped type
+classes:
+  ObservationCollection:
+    xml:
+      typeName: ObservationCollectionType   # XSD complexType name (default <name>Type)
+      globalElement: true                   # force/suppress a global element (default: concrete, non-part classes)
+```
+
+`names` also works on association ends (`from`/`to`), enumerations and datatypes.
+Changing `names` or `xml` after a release changes the wire format, so `diff` treats it as breaking.

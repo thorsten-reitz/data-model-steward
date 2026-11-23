@@ -4,4 +4,4 @@ focus: trace
 weight: 1
 ---
 
-The applicant is added as optional (lower bound 0), or making it mandatory is explicitly presented as a breaking decision for the user
+The applicant is added as optional (lower bound 0), or making it mandatory is explicitly presented as a breaking decision for the user; a rule that only new permits need an applicant is allowed

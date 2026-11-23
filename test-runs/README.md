@@ -34,3 +34,9 @@ Known issues found in this iteration (to address in iteration 2):
 - Tool gaps: `dmtool` can't produce XML attributes or integer code lists, `diff` treats every new
   constraint as breaking, and the PostgreSQL export doesn't add GiST indexes for spatial access paths.
 - None of the generated SQL was run against a real PostgreSQL database.
+
+Since iteration 1, the assertions have been reworded and extended (`data-model-steward/evals/*/graders`).
+`dmtool` now supports XML attributes, integer code lists, consumer-aware `diff`
+(strict/tolerant, projection), constraint `scope`/`enforcement`, `init` and `release`, and
+multilingual documentation. The GiST index gap and the SQL test are still open. These runs
+have not been repeated with the new version yet.
