@@ -12,7 +12,9 @@ A Skill for LLMs to write and maintain specifications for domain data models, wi
     - `diagram`: draws a Mermaid class diagram.
     - `export`: generates JSON Schema, XSD and PostgreSQL DDL, in any of the model's documentation languages.
     - `diff`: classifies changes as breaking, breaking for strict consumers, or compatible, and recommends a version bump.
-    - `release`: validates, snapshots, regenerates the exports and drafts the CHANGELOG entry.
+    - `release`: validates, snapshots, regenerates the exports, review pages and PostgreSQL migration, and drafts the CHANGELOG entry.
+    - `docs`: writes a Markdown review page (data dictionary with diagram, open questions, code lists), per language.
+    - `migrate`: writes a PostgreSQL migration script between two model versions, with manual steps marked.
   - [`assets/model-template.yaml`](data-model-steward/assets/model-template.yaml): worked example (bilingual en/de)
   - [`evals/`](data-model-steward/evals/): test cases in the `claude plugin eval` layout
 - [`test-runs/`](test-runs/): outputs and grading of the test cases, with and without the skill
@@ -25,6 +27,12 @@ package it as a `.skill` file. The skill keeps each model in a `datamodel/` fold
 
 Identifiers can be in any language; exporters transliterate them to ASCII. Definitions and
 labels can be written in several languages (`model.languages.documentation`).
+
+Where a standardised code list or vocabulary fits, for example from the INSPIRE registry,
+EU Vocabularies, EEA or ISO, the skill recommends reusing it. It looks in the input
+materials first, then searches official registries online. Nothing is adopted without
+your OK. An adopted vocabulary is stored as a reference to its source plus a local
+snapshot of the values used, each with its URI.
 
 ```
 python data-model-steward/scripts/dmtool.py init datamodel --name PermitRegistry --languages en,de
