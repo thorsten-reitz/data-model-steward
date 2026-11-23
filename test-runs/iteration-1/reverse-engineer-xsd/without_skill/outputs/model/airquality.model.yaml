@@ -1,0 +1,266 @@
+# Canonical data model: air quality observations
+# Reverse-engineered from partner XSD observations.xsd (version 2.1).
+#
+# This file is the single source of truth. Run `python generate.py` to produce:
+#   generated/observations.schema.json   JSON Schema (draft 2020-12) for the REST API
+#   generated/observations.compat.xsd    XSD equivalent to partner v2.1 (accepts what 2.1 accepts)
+#   generated/observations.strict.xsd    XSD with the canonical constraints applied (proposal for 2.2)
+#
+# Conventions
+#   type:        string | decimal | double | int | dateTime | id   or a name from `enums` / `classes`
+#   required:    property must be present (XSD minOccurs=1 / JSON "required")
+#   nullable:    property may be present with an explicit null (XSD nillable / JSON null)
+#   many:        list; minItems defaults to 1 when required, 0 otherwise
+#   xml:         { name: <element/attribute name>, attribute: true }   - XML serialisation details
+#   json:        { name: <property name> }                             - JSON serialisation details
+#   constraints: canonical value constraints. Always enforced in JSON Schema and the strict XSD;
+#                NOT enforced in the compat XSD (which must stay byte-for-byte as permissive as 2.1).
+#   xsdStrictUnique: identity constraints emitted only in the strict XSD
+#   issues:      ids of entries in xsd-review.md that concern this element
+
+model:
+  name: AirQualityObservations
+  version: "2.1.0-canonical.1"
+  source: observations.xsd (partner schema version 2.1)
+  xml:
+    namespace: http://example.org/airquality/2.1
+    prefix: aq
+    schemaVersion: "2.1"
+  json:
+    id: https://example.org/schemas/airquality/2.1/observations.schema.json
+
+types:
+  # Identifier usable as an xs:ID: an NCName, unique across the WHOLE document (stations and
+  # sampling points share one ID space). See issue I-01.
+  id:
+    xsd: xs:ID
+    json: { type: string, pattern: "^[A-Za-z_][A-Za-z0-9._-]*$", maxLength: 128 }
+  string:   { xsd: xs:string,   json: { type: string } }
+  decimal:  { xsd: xs:decimal,  json: { type: number } }
+  double:   { xsd: xs:double,   json: { type: number } }
+  int:      { xsd: xs:int,      json: { type: integer, minimum: -2147483648, maximum: 2147483647 } }
+  # Canonical rule: timestamps MUST carry a UTC offset (I-08). JSON "date-time" (RFC 3339) requires one,
+  # but "format" is only an annotation by default in draft 2020-12, so the offset is also enforced by pattern.
+  dateTime:
+    xsd: xs:dateTime
+    strictPattern: ".+T.+(Z|[+\\-]\\d{2}:\\d{2})"
+    json:
+      type: string
+      format: date-time
+      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+
+enums:
+  StationKind:
+    xml: { name: StationKindType }
+    base: string
+    description: Station classification by dominant emission source (EEA 'station type').
+    values:
+      - { value: traffic,    description: Pollution level dominated by emissions from nearby traffic. }
+      - { value: industrial, description: Pollution level dominated by industrial sources. }
+      - { value: background, description: Not dominated by a single source; representative of general exposure. }
+    issues: [I-06]
+
+  ValidityFlag:
+    base: int
+    enforceInCompatXsd: false     # 2.1 declares plain xs:int
+    description: >
+      Observation validity flag. Values ASSUMED to follow the EEA e-Reporting validity
+      vocabulary (http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity); the XSD only says xs:int.
+    values:
+      - { value: -99, description: Not valid due to station maintenance or calibration in progress. }
+      - { value: -1,  description: Not valid. }
+      - { value: 1,   description: Valid. }
+      - { value: 2,   description: Valid, but below detection limit. }
+      - { value: 3,   description: Valid, but below detection limit and value replaced by 0.5 x detection limit. }
+    issues: [I-11]
+
+  VerificationFlag:
+    base: int
+    enforceInCompatXsd: false
+    description: >
+      Observation verification flag. Values ASSUMED to follow the EEA e-Reporting verification
+      vocabulary (http://dd.eionet.europa.eu/vocabulary/aq/observationverification).
+    values:
+      - { value: 1, description: Verified. }
+      - { value: 2, description: Preliminary verified. }
+      - { value: 3, description: Not verified. }
+    issues: [I-11]
+
+classes:
+  ObservationCollection:
+    root: true
+    description: A delivery from a partner - a batch of stations with their sampling points and observations.
+    properties:
+      stations:
+        type: Station
+        required: true
+        many: true
+        xml: { name: station }
+        json: { name: stations }
+        issues: [I-14, I-15]
+
+  Station:
+    xml: { name: StationType }
+    description: A monitoring station (physical site).
+    key: [id]
+    properties:
+      id:
+        type: id
+        required: true
+        xml: { attribute: true }
+        description: Document/technical identifier of the station (xs:ID). Treated as the station's stable id.
+        issues: [I-01, I-02]
+      stationCode:
+        type: string
+        required: true
+        description: Business code of the station (e.g. national/EEA station code).
+        constraints: { minLength: 1, maxLength: 64 }
+        issues: [I-02]
+      name:
+        type: string
+        required: true
+        description: Human-readable station name.
+        constraints: { minLength: 1 }
+      operator:
+        type: string
+        description: Name of the organisation operating the station (free text).
+        issues: [I-16]
+      position:
+        type: Position
+        required: true
+      stationType:
+        type: StationKind
+        required: true
+        description: Station classification (traffic / industrial / background).
+        issues: [I-06]
+      samplingPoints:
+        type: SamplingPoint
+        required: true
+        many: true
+        xml: { name: sampling }
+        json: { name: samplingPoints }
+        issues: [I-09]
+
+  Position:
+    xml: { name: PositionType }
+    description: Geographic position of the station. CRS ASSUMED to be WGS84 (EPSG:4326), decimal degrees.
+    properties:
+      lat:
+        type: decimal
+        required: true
+        description: Latitude in decimal degrees (WGS84 assumed).
+        constraints: { minimum: -90, maximum: 90 }
+        issues: [I-04]
+      lon:
+        type: decimal
+        required: true
+        description: Longitude in decimal degrees (WGS84 assumed).
+        constraints: { minimum: -180, maximum: 180 }
+        issues: [I-04]
+      altitude:
+        type: decimal
+        nullable: true
+        description: Altitude in metres above mean sea level (unit and datum ASSUMED). Absent and null both mean unknown.
+        issues: [I-05]
+
+  SamplingPoint:
+    xml: { name: SamplingPointType }
+    description: >
+      A measurement configuration at a station for exactly one pollutant. Owns the time series
+      of observations; all observations share the sampling point's unit.
+    key: [id]
+    properties:
+      id:
+        type: id
+        required: true
+        xml: { attribute: true }
+        issues: [I-01]
+      pollutant:
+        type: string
+        required: true
+        description: >
+          Pollutant code from the EEA pollutant vocabulary notation (e.g. NO2, PM10, PM2.5, O3, SO2, CO).
+          Not enforced as an enum because the XSD does not list the 6 pollutants in use.
+        constraints: { minLength: 1, maxLength: 32 }
+        issues: [I-07]
+      unit:
+        type: string
+        required: true
+        description: Unit of measurement of all observation values (e.g. ug/m3, mg/m3).
+        constraints: { minLength: 1, maxLength: 32 }
+        issues: [I-10]
+      observations:
+        type: Observation
+        many: true
+        xml: { name: observation }
+        json: { name: observations }
+        # strict XSD only: at most one observation per interval start within a sampling point (I-12)
+        xsdStrictUnique:
+          - { name: uniqueObservationBegin, selector: "aq:observation", fields: ["aq:begin"] }
+        issues: [I-12, I-14]
+
+  Observation:
+    xml: { name: ObservationType }
+    description: >
+      One aggregated measurement over the interval [begin, end). Expected cadence is hourly.
+      Natural key within a sampling point: begin.
+    key: [samplingPoint, begin]   # samplingPoint is the containing parent
+    properties:
+      begin:
+        type: dateTime
+        required: true
+        description: Start of the averaging interval (inclusive - assumed).
+        issues: [I-08, I-12]
+      end:
+        type: dateTime
+        required: true
+        description: End of the averaging interval (exclusive - assumed). Must be later than begin (not expressible in XSD/JSON Schema; validate in code).
+        issues: [I-08, I-12]
+      value:
+        type: double
+        required: true
+        nullable: true
+        description: Measured value in the sampling point's unit; null when no value is available.
+        issues: [I-13]
+      validity:
+        type: ValidityFlag
+        required: true
+        issues: [I-11]
+      verification:
+        type: VerificationFlag
+        required: true
+        issues: [I-11]
+
+# JSON-only resource shapes for the REST API. These are not part of the XML exchange format;
+# they are flattened projections of the canonical classes above.
+apiViews:
+  ObservationRecord:
+    description: >
+      Flat observation as returned by the REST API (e.g. GET /observations?station=..&pollutant=..&from=..&to=..).
+      Denormalises station/sampling point keys onto each observation for efficient paging over ~57,600 rows/day.
+    properties:
+      stationId:       { from: Station.id, required: true }
+      samplingPointId: { from: SamplingPoint.id, required: true }
+      pollutant:       { from: SamplingPoint.pollutant, required: true }
+      unit:            { from: SamplingPoint.unit, required: true }
+      begin:           { from: Observation.begin, required: true }
+      end:             { from: Observation.end, required: true }
+      value:           { from: Observation.value, required: true }
+      validity:        { from: Observation.validity, required: true }
+      verification:    { from: Observation.verification, required: true }
+  StationSummary:
+    description: Station resource without nested observations (e.g. GET /stations/{id}).
+    properties:
+      id:           { from: Station.id, required: true }
+      stationCode:  { from: Station.stationCode, required: true }
+      name:         { from: Station.name, required: true }
+      operator:     { from: Station.operator }
+      position:     { from: Station.position, required: true }
+      stationType:  { from: Station.stationType, required: true }
+      samplingPoints:
+        required: true
+        many: true
+        object:
+          id:        { from: SamplingPoint.id, required: true }
+          pollutant: { from: SamplingPoint.pollutant, required: true }
+          unit:      { from: SamplingPoint.unit, required: true }

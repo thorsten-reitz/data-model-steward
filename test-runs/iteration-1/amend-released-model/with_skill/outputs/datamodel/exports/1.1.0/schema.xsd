@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:pr="https://example.org/models/permit-registry"
+           targetNamespace="https://example.org/models/permit-registry" elementFormDefault="qualified" version="1.1.0">
+  <xs:annotation><xs:documentation>Permits issued by authorities, with their conditions.</xs:documentation></xs:annotation>
+  <xs:simpleType name="UUIDType">
+    <xs:restriction base="xs:string"><xs:pattern value="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"/></xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="ReferenceType">
+    <xs:annotation><xs:documentation>Reference to another object by identifier or URI.</xs:documentation></xs:annotation>
+    <xs:attribute name="href" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:simpleType name="PermitStatusType">
+    <xs:annotation><xs:documentation>Lifecycle status of a permit.</xs:documentation></xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="applied"/>
+      <xs:enumeration value="granted"/>
+      <xs:enumeration value="refused"/>
+      <xs:enumeration value="revoked"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ConditionCategoryType">
+    <xs:annotation><xs:documentation>Category of a permit condition. Extensible code list. Known values: environmental, safety, other</xs:documentation></xs:annotation>
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:complexType name="AddressType">
+    <xs:annotation><xs:documentation>Postal address.</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="street" minOccurs="0">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:maxLength value="200"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="postalCode" minOccurs="1">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:maxLength value="10"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="city" minOccurs="1">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:maxLength value="100"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="ApplicantType">
+    <xs:annotation><xs:documentation>Person or organisation that applied for the permit, as recorded on the permit.</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="name" minOccurs="1">
+        <xs:annotation><xs:documentation>Name of the applicant (natural person or contact person).</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:maxLength value="200"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="organisation" minOccurs="0">
+        <xs:annotation><xs:documentation>Organisation the applicant acts for, if any.</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:maxLength value="200"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="address" type="pr:AddressType" minOccurs="1">
+        <xs:annotation><xs:documentation>Postal address of the applicant.</xs:documentation></xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="AuthorityType">
+    <xs:annotation><xs:documentation>Public body competent to issue permits.</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="authorityId" type="xs:anyURI" minOccurs="1">
+        <xs:annotation><xs:documentation>Persistent URI of the authority.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="name" minOccurs="1">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:maxLength value="200"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="address" type="pr:AddressType" minOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="Authority" type="pr:AuthorityType"/>
+  <xs:complexType name="PermitType">
+    <xs:annotation><xs:documentation>Official authorisation granted to an applicant for an activity at a site. Constraints: C-001: validUntil must not be before decisionDate.; C-002: WARNING LEVEL (documented, not enforced by the schemas) - every permit recorded from 1.1.0 on must have an applicant; older permits may lack it. Cannot invalidate existing data. Candidate for enforcement in 2.0.0 (Q-001).; C-003: Consistency of the validity end (applies only to the new attribute validUntilDateTime, so it cannot invalidate existing data) - the local date of validUntilDateTime must not be before decisionDate, and when validUntil is also present it equals that local date.</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="permitId" type="pr:UUIDType" minOccurs="1">
+        <xs:annotation><xs:documentation>Stable identifier of the permit.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="reference" minOccurs="1">
+        <xs:annotation><xs:documentation>File number under which the authority handles the permit (business term "file number"; the technical/exchange name stays "reference", see D-004).</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:maxLength value="40"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="status" type="pr:PermitStatusType" minOccurs="1"/>
+      <xs:element name="decisionDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="validUntil" type="xs:date" minOccurs="0" nillable="true">
+        <xs:annotation><xs:documentation>DEPRECATED. Last day of validity (date only). Still populated for 1.0.0 consumers; must equal the local calendar date of validUntilDateTime when both are present (C-003).</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="validUntilDateTime" type="xs:dateTime" minOccurs="0" nillable="true">
+        <xs:annotation><xs:documentation>Exact end of validity with time of day and UTC offset (e.g. 2027-03-31T12:00:00+02:00). The permit is valid up to, but not including, this instant.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="siteLocation" type="xs:anyType" minOccurs="1">
+        <xs:annotation><xs:documentation>Geometry Polygon in EPSG:4326 — replace xs:anyType by a GML property type.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="keywords" minOccurs="0" maxOccurs="unbounded">
+        <xs:annotation><xs:documentation>DEPRECATED. Free keywords. No longer used; producers should stop populating it.</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:maxLength value="50"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="applicant" type="pr:ApplicantType" minOccurs="0" nillable="true">
+        <xs:annotation><xs:documentation>Applicant of the permit. Expected for every permit recorded from 1.1.0 on (C-002); null or absent for older permits whose applicant is unknown.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="issuer" type="pr:ReferenceType" minOccurs="1"/>
+      <xs:element name="conditions" type="pr:PermitConditionType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="Permit" type="pr:PermitType"/>
+  <xs:complexType name="PermitConditionType">
+    <xs:annotation><xs:documentation>Obligation attached to a permit.</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="text" type="xs:string" minOccurs="1"/>
+      <xs:element name="dueDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="category" type="pr:ConditionCategoryType" minOccurs="0">
+        <xs:annotation><xs:documentation>Category of the condition. Expected for new conditions; empty for conditions recorded before 1.1.0 until they are classified.</xs:documentation></xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

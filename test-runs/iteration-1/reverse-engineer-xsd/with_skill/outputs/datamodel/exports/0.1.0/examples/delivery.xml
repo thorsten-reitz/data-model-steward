@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObservationCollection xmlns="http://example.org/airquality/2.1"
+                       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <station id="ST_XX0001A">
+    <stationCode>XX0001A</stationCode>
+    <name>Example Ring Road</name>
+    <operator>Example Environment Agency</operator>
+    <position><lat>52.5163</lat><lon>13.3777</lon><altitude>34</altitude></position>
+    <stationType>traffic</stationType>
+    <sampling id="SPO_XX0001A_NO2_1">
+      <pollutant>NO2</pollutant>
+      <unit>ug.m-3</unit>
+      <observation><begin>2026-11-22T00:00:00+01:00</begin><end>2026-11-22T01:00:00+01:00</end><value>41.7</value><validity>1</validity><verification>3</verification></observation>
+      <observation><begin>2026-11-22T01:00:00+01:00</begin><end>2026-11-22T02:00:00+01:00</end><value xsi:nil="true"/><validity>-99</validity><verification>3</verification></observation>
+    </sampling>
+    <sampling id="SPO_XX0001A_CO_1">
+      <pollutant>CO</pollutant>
+      <unit>mg.m-3</unit>
+      <observation><begin>2026-11-22T00:00:00+01:00</begin><end>2026-11-22T01:00:00+01:00</end><value>0.4</value><validity>1</validity><verification>3</verification></observation>
+    </sampling>
+  </station>
+</ObservationCollection>

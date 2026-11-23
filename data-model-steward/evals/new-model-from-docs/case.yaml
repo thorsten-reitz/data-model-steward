@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: new-model-from-docs
+expected_outcome: |
+  A datamodel/ folder with a canonical, implementation-neutral model (Tree, Inspection, Measure,
+  species code list, defects, contractor etc.), a source register, logged assumptions / open
+  questions, history requirements (inspections audited and never deleted, tree location corrections
+  tracked, felled trees kept), volumes/NFRs recorded, and generated PostgreSQL DDL and JSON Schema
+  consistent with the model.
+context:
+  scaffold_script: place-files.sh

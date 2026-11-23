@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GENERATED from model/airquality.model.yaml - do not edit by hand. Mode: STRICT (canonical constraints applied; proposal for 2.2). -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:aq="http://example.org/airquality/2.1"
+           targetNamespace="http://example.org/airquality/2.1" elementFormDefault="qualified" version="2.1">
+  <xs:element name="ObservationCollection">
+    <xs:annotation><xs:documentation>A delivery from a partner - a batch of stations with their sampling points and observations.</xs:documentation></xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="station" type="aq:StationType" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueStationCode">
+      <xs:selector xpath="aq:station"/><xs:field xpath="aq:stationCode"/>
+    </xs:unique>
+  </xs:element>
+  <xs:complexType name="StationType">
+    <xs:annotation><xs:documentation>A monitoring station (physical site).</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="stationCode">
+        <xs:annotation><xs:documentation>Business code of the station (e.g. national/EEA station code).</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:minLength value="1"/>
+            <xs:maxLength value="64"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="name">
+        <xs:annotation><xs:documentation>Human-readable station name.</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:minLength value="1"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="operator" type="xs:string" minOccurs="0">
+        <xs:annotation><xs:documentation>Name of the organisation operating the station (free text).</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="position" type="aq:PositionType"/>
+      <xs:element name="stationType" type="aq:StationKindType">
+        <xs:annotation><xs:documentation>Station classification (traffic / industrial / background).</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="sampling" type="aq:SamplingPointType" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="PositionType">
+    <xs:annotation><xs:documentation>Geographic position of the station. CRS ASSUMED to be WGS84 (EPSG:4326), decimal degrees.</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="lat">
+        <xs:annotation><xs:documentation>Latitude in decimal degrees (WGS84 assumed).</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:decimal">
+            <xs:minInclusive value="-90"/>
+            <xs:maxInclusive value="90"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="lon">
+        <xs:annotation><xs:documentation>Longitude in decimal degrees (WGS84 assumed).</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:decimal">
+            <xs:minInclusive value="-180"/>
+            <xs:maxInclusive value="180"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="altitude" type="xs:decimal" minOccurs="0" nillable="true">
+        <xs:annotation><xs:documentation>Altitude in metres above mean sea level (unit and datum ASSUMED). Absent and null both mean unknown.</xs:documentation></xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SamplingPointType">
+    <xs:annotation><xs:documentation>A measurement configuration at a station for exactly one pollutant. Owns the time series of observations; all observations share the sampling point's unit.</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="pollutant">
+        <xs:annotation><xs:documentation>Pollutant code from the EEA pollutant vocabulary notation (e.g. NO2, PM10, PM2.5, O3, SO2, CO). Not enforced as an enum because the XSD does not list the 6 pollutants in use.</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:minLength value="1"/>
+            <xs:maxLength value="32"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="unit">
+        <xs:annotation><xs:documentation>Unit of measurement of all observation values (e.g. ug/m3, mg/m3).</xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:minLength value="1"/>
+            <xs:maxLength value="32"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="observation" type="aq:ObservationType" minOccurs="0" maxOccurs="unbounded">
+        <xs:unique name="uniqueObservationBegin"><xs:selector xpath="aq:observation"/><xs:field xpath="aq:begin"/></xs:unique>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="ObservationType">
+    <xs:annotation><xs:documentation>One aggregated measurement over the interval [begin, end). Expected cadence is hourly. Natural key within a sampling point: begin.</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="begin" type="aq:DateTimeWithOffset">
+        <xs:annotation><xs:documentation>Start of the averaging interval (inclusive - assumed).</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="end" type="aq:DateTimeWithOffset">
+        <xs:annotation><xs:documentation>End of the averaging interval (exclusive - assumed). Must be later than begin (not expressible in XSD/JSON Schema; validate in code).</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="value" type="xs:double" nillable="true">
+        <xs:annotation><xs:documentation>Measured value in the sampling point's unit; null when no value is available.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="validity" type="aq:ValidityFlagType"/>
+      <xs:element name="verification" type="aq:VerificationFlagType"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="StationKindType">
+    <xs:annotation><xs:documentation>Station classification by dominant emission source (EEA 'station type').</xs:documentation></xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="traffic">
+        <xs:annotation><xs:documentation>Pollution level dominated by emissions from nearby traffic.</xs:documentation></xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="industrial">
+        <xs:annotation><xs:documentation>Pollution level dominated by industrial sources.</xs:documentation></xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="background">
+        <xs:annotation><xs:documentation>Not dominated by a single source; representative of general exposure.</xs:documentation></xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ValidityFlagType">
+    <xs:annotation><xs:documentation>Observation validity flag. Values ASSUMED to follow the EEA e-Reporting validity vocabulary (http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity); the XSD only says xs:int.</xs:documentation></xs:annotation>
+    <xs:restriction base="xs:int">
+      <xs:enumeration value="-99">
+        <xs:annotation><xs:documentation>Not valid due to station maintenance or calibration in progress.</xs:documentation></xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="-1">
+        <xs:annotation><xs:documentation>Not valid.</xs:documentation></xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="1">
+        <xs:annotation><xs:documentation>Valid.</xs:documentation></xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="2">
+        <xs:annotation><xs:documentation>Valid</xs:documentation></xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="3">
+        <xs:annotation><xs:documentation>Valid</xs:documentation></xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="VerificationFlagType">
+    <xs:annotation><xs:documentation>Observation verification flag. Values ASSUMED to follow the EEA e-Reporting verification vocabulary (http://dd.eionet.europa.eu/vocabulary/aq/observationverification).</xs:documentation></xs:annotation>
+    <xs:restriction base="xs:int">
+      <xs:enumeration value="1">
+        <xs:annotation><xs:documentation>Verified.</xs:documentation></xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="2">
+        <xs:annotation><xs:documentation>Preliminary verified.</xs:documentation></xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="3">
+        <xs:annotation><xs:documentation>Not verified.</xs:documentation></xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="DateTimeWithOffset">
+    <xs:annotation><xs:documentation>xs:dateTime that must carry an explicit UTC offset (Z or +hh:mm/-hh:mm).</xs:documentation></xs:annotation>
+    <xs:restriction base="xs:dateTime"><xs:pattern value=".+T.+(Z|[+\-]\d{2}:\d{2})"/></xs:restriction>
+  </xs:simpleType>
+</xs:schema>

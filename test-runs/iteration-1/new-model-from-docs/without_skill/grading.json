@@ -1,0 +1,91 @@
+{
+  "expectations": [
+    {
+      "text": "A canonical, implementation-neutral model file exists in datamodel/, separate from the generated PostgreSQL DDL and JSON Schema",
+      "passed": false,
+      "evidence": "No implementation-neutral canonical model. datamodel/model.md is titled 'logical data model', but it describes the hand-written physical schema: its Mermaid ER uses PostgreSQL types ('geometry geom \"Point 25832\"', 'enum status', 'smallint', 'uuid') and its design decisions refer to triggers and indexes (trg_forbid_delete, GiST, BRIN). It states 'Physical DDL: sql/01_schema.sql'. The DDL and the JSON Schema are written by hand independently and not generated from model.md, so it is not a canonical source."
+    },
+    {
+      "text": "Assumptions and/or open questions are written to a file in datamodel/",
+      "passed": true,
+      "evidence": "datamodel/ASSUMPTIONS.md: 'Assumptions and open questions', with 7 priority questions and assumptions A-01..A-33 (e.g. the Roloff 0-3 vs 1-5 question, A-10)."
+    },
+    {
+      "text": "Species is modelled as a managed, extensible code list or reference table rather than free text",
+      "passed": true,
+      "evidence": "sql/01_schema.sql: 'CREATE TABLE cadastre.species' (botanical_name, is_active, replaced_by_species_id), comment 'City species list (~900 entries), extended by the arborist team'; tree.species_id integer NOT NULL REFERENCES cadastre.species; 02 adds trigger tree_active_species, and the cadastre_codelist role may INSERT/UPDATE species."
+    },
+    {
+      "text": "Inspection records are protected from deletion and have an audit trail (who changed what, when)",
+      "passed": true,
+      "evidence": "sql/02_rules_and_audit.sql: trg_forbid_delete BEFORE DELETE/TRUNCATE triggers applied in a loop to tables including inspection; the editor role gets only INSERT, UPDATE on inspection; trg_audit on inspection and inspection_defect writes cadastre.audit_log(changed_at, changed_by, changed_columns, old_row, new_row). Caveats: the editor role has DELETE on inspection_defect (audited); the SQL was never executed."
+    },
+    {
+      "text": "Corrections of a tree's location are historised so the previous location and the correction time can be retrieved",
+      "passed": true,
+      "evidence": "sql/01_schema.sql: tree_location_history(tree_id, geom geometry(Point,25832), valid_from, valid_to 'Moment of the correction', corrected_by, correction_reason); 02 trigger tree_location_history writes the old position whenever geom changes; the table is append-only."
+    },
+    {
+      "text": "Felled trees are kept with felling date and reason, and a felled tree can be linked to one or more replacement trees",
+      "passed": true,
+      "evidence": "sql/01_schema.sql tree: status ENUM('living','felled'), felled_on, felling_reason_code FK to felling_reason; CHECK tree_felled_has_felling_data_ck; table tree_replacement(felled_tree_id, replacement_tree_id) with both as PK (n:m); tree is in the forbid-delete list."
+    },
+    {
+      "text": "The tree location is a PostGIS Point geometry with SRID 25832 and has a spatial (GiST) index",
+      "passed": true,
+      "evidence": "sql/01_schema.sql: 'geom geometry(Point, 25832) NOT NULL' and 'CREATE INDEX tree_geom_gix ON cadastre.tree USING gist (geom);' plus a partial GiST index on living trees."
+    },
+    {
+      "text": "Defects are modelled as multi-valued entries each with a severity (low/medium/high), not as comma-separated text",
+      "passed": true,
+      "evidence": "sql/01_schema.sql: inspection_defect(inspection_id, defect_code FK to defect_type, severity cadastre.defect_severity ENUM('low','medium','high'), PK (inspection_id, defect_code)); CHECK requires severity unless is_legacy_import."
+    },
+    {
+      "text": "Expected volumes (trees, inspections per year, measures per year) are recorded in the model documentation",
+      "passed": true,
+      "evidence": "model.md traceability table: '180k trees, 200k inspections/yr for 30 years, 25k measures/yr'; 01_schema.sql comments '~200,000 rows/year, kept >= 30 years (~6 M rows)' and '~25,000 rows/year'; ASSUMPTIONS.md A-27."
+    },
+    {
+      "text": "Inspector names are flagged as personal data and excluded from or marked for the open data export",
+      "passed": true,
+      "evidence": "sql/01_schema.sql COMMENT on cadastre.staff: 'PERSONAL DATA (display_name, login) - never exported to open data or the agency (A-17)'; 03_views.sql opendata.tree selects only tree_number, botanical_name, planting_year, latest_vitality_class, geom; ASSUMPTIONS A-17 'Open data carries no person reference at all'."
+    },
+    {
+      "text": "The generated JSON Schema is valid JSON and a valid JSON Schema",
+      "passed": true,
+      "evidence": "Ran python -I with jsonschema: Draft202012Validator.check_schema passed for json/tree-exchange.schema.json, and the example file validates with FormatChecker (0 errors). The schema is hand-written, not generated; the assertion was judged on validity only."
+    }
+  ],
+  "summary": {
+    "passed": 10,
+    "failed": 1,
+    "total": 11,
+    "pass_rate": 0.91
+  },
+  "timing": {
+    "executor_duration_seconds": 807.2,
+    "total_duration_seconds": 807.2
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "A canonical, implementation-neutral model file exists in datamodel/, separate from the generated PostgreSQL DDL and JSON Schema",
+        "reason": "This is the only assertion that separates the runs, and it partly rewards one architecture (model-first generation). Consider rephrasing it as a substance check: a single source of truth exists, and the DDL and the JSON Schema agree with it (same entities, attributes and enumerations)."
+      },
+      {
+        "assertion": "The generated JSON Schema is valid JSON and a valid JSON Schema",
+        "reason": "Non-discriminating: both runs easily pass a metaschema check. Strengthen it, for example: the exchange schema covers trees, inspections and measures, rejects an inspector name, and a realistic example validates."
+      },
+      {
+        "reason": "No assertion checks that the SQL actually runs. Neither run executed its DDL (both say so). Loading the scripts into PostGIS without errors would discriminate far more than the structural checks."
+      },
+      {
+        "reason": "Nothing covers inspector identity in the agency exchange file (both send a pseudonymous id), the Roloff 1-5 vs 0-3 conflict (both flagged it), offline-sync keys, or the legacy migration. These are where real quality differences could show."
+      },
+      {
+        "reason": "Assertions 2-10 are satisfied by both runs. They confirm baseline competence but do not separate with_skill from without_skill."
+      }
+    ],
+    "overall": "10 of 11 assertions pass for both runs. Only the canonical-model assertion separates them, and it leans toward the skill's architecture. Add execution and consistency checks to make the eval discriminating."
+  }
+}

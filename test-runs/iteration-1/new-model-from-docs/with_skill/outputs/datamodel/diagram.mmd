@@ -1,0 +1,127 @@
+classDiagram
+  class TreeStatus {
+    <<enumeration>>
+    standing
+    felled
+  }
+  class FellingReason {
+    <<enumeration>>
+    disease
+    trafficSafety
+    stormDamage
+    dead
+    construction
+    other
+  }
+  class DefectType {
+    <<enumeration>>
+    deadwood
+    cavity
+    rootDamage
+  }
+  class DefectSeverity {
+    <<enumeration>>
+    low
+    medium
+    high
+  }
+  class MeasureType {
+    <<enumeration>>
+    pruning
+    felling
+    cabling
+  }
+  class MeasurePriority {
+    <<enumeration>>
+    immediate
+    high
+    normal
+    low
+  }
+  class MeasureStatus {
+    <<enumeration>>
+    ordered
+    done
+    cancelled
+  }
+  class DefectFinding {
+    <<datatype>>
+    +DefectType defectType
+    +DefectSeverity severity
+    +string remark [0..1]
+  }
+  class Species {
+    +uuid id
+    +string botanicalName
+    +string commonName [0..1]
+  }
+  class Site {
+    <<abstract>>
+    +uuid id
+    +string name
+    +string externalCode [0..1]
+  }
+  class Park {
+    +geometry area [0..1]
+  }
+  class StreetSegment {
+    +geometry axis [0..1]
+  }
+  class Tree {
+    +uuid id
+    +long treeNumber [0..1]
+    +geometry location
+    +integer plantingYear [0..1]
+    +TreeStatus status
+    +date fellingDate [0..1]
+    +FellingReason fellingReason [0..1]
+    +text fellingRemark [0..1]
+    +integer currentVitality [0..1]
+    +date lastInspectionDate [0..1]
+  }
+  class LocationCorrection {
+    +geometry previousLocation
+    +geometry correctedLocation
+    +dateTime correctedAt
+    +string reason [0..1]
+  }
+  class Inspection {
+    +uuid id
+    +date inspectionDate
+    +integer trunkCircumference [0..1]
+    +decimal crownDiameter [0..1]
+    +decimal height [0..1]
+    +integer vitality
+    +DefectFinding defects [0..*]
+    +text remark [0..1]
+  }
+  class Measure {
+    +uuid id
+    +MeasureType measureType
+    +date orderDate
+    +date dueDate
+    +MeasurePriority priority
+    +MeasureStatus status
+    +date completionDate [0..1]
+    +text description [0..1]
+  }
+  class Contractor {
+    +uuid id
+    +string name
+  }
+  class StaffMember {
+    +uuid id
+    +string name
+    +boolean active
+  }
+  Site <|-- Park
+  Site <|-- StreetSegment
+  Tree "0..*" --> "1" Species : species
+  Tree "0..*" --> "1" Site : site
+  Tree "1" *-- "0..*" LocationCorrection : locationCorrections
+  Tree "0..*" --> "0..*" Tree : replacedTrees
+  Inspection "0..*" --> "1" Tree : tree
+  Inspection "0..*" --> "1" StaffMember : inspector
+  Measure "0..*" --> "1" Inspection : inspection
+  Measure "0..*" --> "0..1" StaffMember : orderedBy
+  Measure "0..*" --> "0..1" Contractor : contractor

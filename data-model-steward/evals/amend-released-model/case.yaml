@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: amend-released-model
+expected_outcome: |
+  The model is amended without editing releases/1.0.0. The rename and the keywords removal are done
+  non-breakingly (new attribute + deprecation, not removal), the applicant is added as optional (or
+  the breaking alternative is explicitly escalated), expired is added to PermitStatus, the
+  date-to-dateTime change is handled without silently retyping, a compatibility check against 1.0.0
+  is run, the version is bumped to a minor version, CHANGELOG/decisions/sources are updated, exports
+  are regenerated, and the user gets a list of decisions they still need to make.
+context:
+  scaffold_script: place-files.sh

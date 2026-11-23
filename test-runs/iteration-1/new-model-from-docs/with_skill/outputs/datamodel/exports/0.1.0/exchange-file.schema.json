@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data.example-city.org/models/tree-cadastre/0.1.0/exchange-file.schema.json",
+  "title": "Tree Cadastre – monthly exchange file to the regional environmental agency",
+  "description": "Envelope for the monthly delivery (S1 UC5). HAND-WRITTEN wrapper (decision D-010): it only arranges the generated object definitions from schema.json (same version) into flat lists; every object definition is generated from model.yaml. Content: all objects created or changed in the reporting period (delta, A-004), plus the species, sites and contractors they reference. Staff members (personal data) are never included; inspections/measures carry only the pseudonymous staff id. Geometries are GeoJSON-structured but with coordinates in EPSG:25832 (D-011, Q-006).",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {"const": "0.1.0", "description": "Version of the tree cadastre model the file conforms to."},
+    "deliveryId": {"type": "string", "format": "uuid", "description": "Unique id of this delivery."},
+    "sender": {"type": "string", "maxLength": 100, "description": "Delivering organisation, e.g. the city's parks department."},
+    "createdAt": {"type": "string", "format": "date-time", "description": "When the file was produced."},
+    "reportingPeriod": {
+      "type": "object",
+      "properties": {
+        "from": {"type": "string", "format": "date"},
+        "to": {"type": "string", "format": "date"}
+      },
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "description": "Calendar month covered (inclusive dates)."
+    },
+    "crs": {"const": "EPSG:25832", "description": "Coordinate reference system of all coordinates in this file."},
+    "species":        {"type": "array", "items": {"$ref": "schema.json#/$defs/Species"}},
+    "parks":          {"type": "array", "items": {"$ref": "schema.json#/$defs/Park"}},
+    "streetSegments": {"type": "array", "items": {"$ref": "schema.json#/$defs/StreetSegment"}},
+    "contractors":    {"type": "array", "items": {"$ref": "schema.json#/$defs/Contractor"}},
+    "trees":          {"type": "array", "items": {"$ref": "schema.json#/$defs/Tree"}},
+    "inspections":    {"type": "array", "items": {"$ref": "schema.json#/$defs/Inspection"}},
+    "measures":       {"type": "array", "items": {"$ref": "schema.json#/$defs/Measure"}}
+  },
+  "required": ["schemaVersion", "deliveryId", "createdAt", "reportingPeriod", "crs", "trees", "inspections", "measures"],
+  "additionalProperties": false,
+  "$comment": "Referential integrity (every referenced id is present in the file or was delivered earlier) and the rules C-001..C-011 cannot be expressed in JSON Schema; they are checked by the producer before sending."
+}

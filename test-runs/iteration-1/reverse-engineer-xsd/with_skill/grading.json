@@ -1,0 +1,85 @@
+{
+  "expectations": [
+    {
+      "text": "A canonical model file exists separate from the generated JSON Schema",
+      "passed": true,
+      "evidence": "with_skill/outputs/datamodel/model.yaml is the canonical model; JSON Schema generated separately at datamodel/exports/0.1.0/airquality.schema.json (response.md: '`model.yaml`: the canonical model')."
+    },
+    {
+      "text": "Position is modelled as a value type/datatype without its own identity",
+      "passed": true,
+      "evidence": "model.yaml puts Position under `datatypes:` (not `classes:`), no identifier; response.md table: 'Position | A value type with lat, lon and optional altitude | n/a'."
+    },
+    {
+      "text": "Pollutant is modelled as an extensible or externally governed code list, not a closed enum or an undocumented plain string",
+      "passed": true,
+      "evidence": "model.yaml enumerations.Pollutant: 'extensible: true', 'authority: http://dd.eionet.europa.eu/vocabulary/aq/pollutant'; JSON Schema $defs/Pollutant is type string with examples (open). D-006 'Pollutant and unit as extensible code lists'."
+    },
+    {
+      "text": "The station kind is modelled as a closed enumeration with traffic, industrial and background",
+      "passed": true,
+      "evidence": "model.yaml enumerations.StationKind: 'extensible: false', values traffic/industrial/background; JSON Schema $defs/StationKind enum ['traffic','industrial','background']."
+    },
+    {
+      "text": "The meaning of the integer validity and verification codes is flagged as ambiguous",
+      "passed": true,
+      "evidence": "response.md item 2: '`validity` and `verification` are bare `xs:int`. The XSD gives no list of values and no meaning for them.' Q-005 blocking: 'Meaning of the validity and verification integers'."
+    },
+    {
+      "text": "The missing coordinate reference system for lat/lon is flagged",
+      "passed": true,
+      "evidence": "response.md item 8: 'The coordinate system, the altitude unit and the lat/lon ranges are not specified (A-005...)'; A-005 'lat/lon are WGS 84 (EPSG:4326)' assumed."
+    },
+    {
+      "text": "Identifier issues are flagged (xs:ID values only unique within one document, and/or overlap of id and stationCode)",
+      "passed": true,
+      "evidence": "response.md item 1: 'Identifiers are only valid inside one file... They only have to be unique within a single XML document'; D-005 treats station @id as document-local vs stationCode as key; Q-002."
+    },
+    {
+      "text": "The observation volume is estimated at roughly 21 million per year (400 x 6 x 24 x 365) and recorded",
+      "passed": true,
+      "evidence": "model.yaml Observation.nfr.volume: '≈ 57,600/day ≈ 21 M/year (400 stations × 6 pollutants × 24)'; growth '+21 M/year'; response table '~21 M/year'."
+    },
+    {
+      "text": "The high observation volume leads to an API design note (e.g. observations as a separate, paginated resource rather than nested in station documents)",
+      "passed": true,
+      "evidence": "decisions.md D-008: REST read resources '/sampling-points/{id}/observations?from=&to=' 'with observations paginated / time-windowed rather than embedded'; ObservationCollection nfr notes 'Too large as a single API response'."
+    },
+    {
+      "text": "The generated JSON Schema is a valid JSON Schema and allows null for the observation value",
+      "passed": true,
+      "evidence": "Ran python -I jsonschema: Draft202012Validator.check_schema OK on airquality.schema.json; $defs/Observation.value = anyOf [number, null]; an Observation with value null validates with 0 errors; examples/delivery.json validates with 0 errors. (Note: value is not in 'required', so absence is also allowed — D-009 documents this.)"
+    }
+  ],
+  "summary": {
+    "passed": 10,
+    "failed": 0,
+    "total": 10,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "total_tokens": 133737,
+    "duration_ms": 362028,
+    "total_duration_seconds": 362.0
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The observation volume is estimated at roughly 21 million per year (400 x 6 x 24 x 365) and recorded",
+        "reason": "Both runs pass trivially once they do 400x6x24x365; consider requiring the estimate be recorded in the canonical model itself (e.g. an NFR/volume field), which discriminates between 'mentioned in prose' and 'recorded in the model'."
+      },
+      {
+        "assertion": "The generated JSON Schema is a valid JSON Schema and allows null for the observation value",
+        "reason": "Weakly discriminating: any generator that maps nillable to null passes. Consider also checking that a sample delivery instance validates and that value stays required (with_skill made value optional, so absent and null are equivalent — a real semantic change from the XSD that no assertion catches)."
+      },
+      {
+        "assertion": "Position is modelled as a value type/datatype without its own identity",
+        "reason": "Grading depends on model vocabulary; a run without a datatype concept (without_skill put Position under classes with no key) is ambiguous. State what counts as evidence (separate datatype section, or explicit 'no identity' statement)."
+      },
+      {
+        "reason": "No assertion checks XSD round-trip compatibility (generated XSD accepting what 2.1 accepts), which was an explicit user goal; both runs claim it, which could be verified with lxml."
+      }
+    ],
+    "overall": "Most assertions are flag-presence checks that a competent run passes regardless of skill; the discriminating ones are Position-as-datatype and Pollutant-as-extensible-code-list."
+  }
+}

@@ -1,0 +1,3 @@
+# Glossary
+
+- **Permit**: official authorisation.

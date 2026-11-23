@@ -1,0 +1,65 @@
+classDiagram
+  class StationKind {
+    <<enumeration>>
+    traffic
+    industrial
+    background
+  }
+  class Pollutant {
+    <<enumeration>>
+    NO2
+    PM10
+    PM2.5
+    O3
+    SO2
+    CO
+  }
+  class ConcentrationUnit {
+    <<enumeration>>
+    ug.m-3
+    mg.m-3
+  }
+  class ObservationValidity {
+    <<enumeration>>
+    -99
+    -1
+    1
+    2
+    3
+  }
+  class VerificationStatus {
+    <<enumeration>>
+    1
+    2
+    3
+  }
+  class Position {
+    <<datatype>>
+    +decimal lat
+    +decimal lon
+    +decimal altitude [0..1]
+  }
+  class ObservationCollection {
+  }
+  class Station {
+    +string stationCode
+    +string name
+    +string operator [0..1]
+    +Position position
+    +StationKind stationType
+  }
+  class SamplingPoint {
+    +string samplingPointId
+    +Pollutant pollutant
+    +ConcentrationUnit unit
+  }
+  class Observation {
+    +dateTime begin
+    +dateTime end
+    +float value
+    +ObservationValidity validity
+    +VerificationStatus verification
+  }
+  ObservationCollection "1" *-- "1..*" Station : station
+  Station "1" *-- "1..*" SamplingPoint : sampling
+  SamplingPoint "1" *-- "0..*" Observation : observation

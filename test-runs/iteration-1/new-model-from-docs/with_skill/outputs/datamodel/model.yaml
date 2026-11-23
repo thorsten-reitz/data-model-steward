@@ -1,0 +1,579 @@
+# Canonical, implementation-neutral data model of the urban tree cadastre.
+# Format: data-model-steward references/model-format.md
+# Check:  python <skill>/scripts/dmtool.py validate datamodel/model.yaml
+# Exports in exports/<version>/ are generated from this file — never edit them by hand.
+#
+# DRAFT 0.1.0: produced without user interviews. Every element marked `status: proposed`
+# or carrying an A-xxx reference in `notes` rests on an assumption listed in
+# open-questions.md and must be confirmed before the first release.
+
+model:
+  name: TreeCadastre
+  title: Urban Tree Cadastre Model
+  description: >-
+    Street and park trees of the city, their inspections, defects and ordered measures,
+    felling and compensation planting, as used by the parks department and exchanged
+    with the regional environmental agency and the open data portal.
+  namespace: https://data.example-city.org/models/tree-cadastre   # placeholder, A-001
+  prefix: tc
+  version: 0.1.0
+  status: draft
+  purposes: [persistence, exchange]
+  targets: [postgres, jsonschema]
+  conventions:
+    language: en
+    identifiers: "attribute `id` (UUID) on every class; legacy numbers kept as separate attributes"
+    crs: "EPSG:25832 (ETRS89 / UTM zone 32N) for all geometries"
+    units: "trunk circumference in cm, crown diameter and height in m"
+  standards: []
+  sources: [S1, S2]
+  decisions: [D-001, D-002, D-003, D-010, D-011, D-012, D-013, D-014]
+  exportOptions:
+    jsonschema:
+      closed: true                      # D-011
+      # no `root`: the $defs library is wrapped by the hand-written exchange envelope
+      # exports/<version>/exchange-file.schema.json (D-010)
+    postgres:
+      tuning: exports/<version>/tuning.sql   # hand-written physical tuning, audit triggers, rules (D-012)
+
+enumerations:
+  TreeStatus:
+    description: Lifecycle state of a tree in the cadastre.
+    extensible: false
+    values:
+      - {code: standing, description: The tree exists (planted and not felled).}
+      - {code: felled, description: The tree has been felled; it remains in the cadastre (UC4).}
+    sources: [S1, S2]
+    decisions: [D-005]
+
+  FellingReason:
+    description: Reason why a tree was felled.
+    extensible: true
+    authority: Parks department
+    values:
+      - {code: disease, description: Disease or pest infestation.}
+      - {code: trafficSafety, description: Tree no longer safe (breakage risk).}
+      - {code: stormDamage, description: Damaged by storm or other weather event.}
+      - {code: dead, description: Tree has died.}
+      - {code: construction, description: Removal required by a construction project.}
+      - {code: other, description: Other reason; explain in fellingRemark.}
+    sources: [S1]
+    status: proposed
+    notes: "Code values invented (A-012); requirements only say 'felling date and reason'."
+
+  DefectType:
+    description: Kind of defect found during an inspection (e.g. deadwood, cavity, root damage).
+    extensible: true
+    authority: Parks department
+    values:
+      - {code: deadwood, label: Deadwood}
+      - {code: cavity, label: Cavity}
+      - {code: rootDamage, label: Root damage}
+    sources: [S1]
+    decisions: [D-006]
+    notes: "Only the three examples from S1 UC2 are known; the full department list must be loaded (Q-004)."
+
+  DefectSeverity:
+    description: Severity of a defect.
+    extensible: false
+    values:
+      - {code: low}
+      - {code: medium}
+      - {code: high}
+    sources: [S1]
+
+  MeasureType:
+    description: Kind of tree-care measure that can be ordered (pruning, felling, cabling, ...).
+    extensible: true
+    authority: Parks department
+    values:
+      - {code: pruning, label: Pruning}
+      - {code: felling, label: Felling}
+      - {code: cabling, label: Cabling}
+    sources: [S1, S2]
+    decisions: [D-006]
+    notes: "S1 lists the values with '…' — further values expected (Q-004)."
+
+  MeasurePriority:
+    description: Urgency of an ordered measure.
+    extensible: false
+    values:
+      - {code: immediate, description: Danger to traffic safety; act at once.}
+      - {code: high}
+      - {code: normal}
+      - {code: low}
+    sources: [S1]
+    status: proposed
+    notes: "S1 requires a priority but defines no values; values assumed (A-013)."
+
+  MeasureStatus:
+    description: Processing state of a measure.
+    extensible: false
+    values:
+      - {code: ordered, description: Ordered, not yet carried out.}
+      - {code: done, description: Carried out; completion date recorded.}
+      - {code: cancelled, description: No longer needed (e.g. tree felled for another reason).}
+    sources: [S1]
+    decisions: [D-007]
+
+datatypes:
+  DefectFinding:
+    description: One defect observed on a tree during an inspection, with its severity.
+    attributes:
+      defectType:
+        type: DefectType
+        description: Kind of defect.
+        sources: [S1, S2]
+      severity:
+        type: DefectSeverity
+        description: Severity of the defect.
+        sources: [S1]
+      remark:
+        type: string
+        multiplicity: "0..1"
+        description: Free-text detail (position on the tree, extent).
+        constraints: {maxLength: 500}
+        status: proposed
+    sources: [S1, S2]
+    decisions: [D-006]
+
+classes:
+  Species:
+    description: Tree species (taxon) from the city's species list, identified by its botanical name.
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr:
+      volume: 900
+      growth: "a few additions per year"
+      accessPaths: ["by botanicalName (type-ahead)", "by id"]
+      classification: public
+    attributes:
+      id: {type: uuid, description: Stable identifier of the species entry., unique: true}
+      botanicalName:
+        type: string
+        description: Scientific name (genus, species, optionally cultivar), e.g. "Tilia cordata 'Greenspire'".
+        unique: true
+        constraints: {maxLength: 120}
+        sources: [S1, S2]
+      commonName:
+        type: string
+        multiplicity: "0..1"
+        description: Vernacular name.
+        constraints: {maxLength: 120}
+        status: proposed
+    sources: [S1, S2]
+    decisions: [D-006]
+
+  Site:
+    description: Park or street segment to which a tree belongs (S1 UC1).
+    abstract: true
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr: {volume: 5000, growth: stable, classification: public, notes: "volume guessed (A-009)"}
+    attributes:
+      id: {type: uuid, description: Stable identifier of the site., unique: true}
+      name:
+        type: string
+        description: Name of the park, or street name of the street segment.
+        constraints: {maxLength: 100}
+        sources: [S2]
+      externalCode:
+        type: string
+        multiplicity: "0..1"
+        description: Identifier of the park or street segment in the city's master register (GIS / street register), if any.
+        constraints: {maxLength: 40}
+        status: proposed
+    sources: [S1, S2]
+    decisions: [D-008]
+
+  Park:
+    description: Public park or green space containing trees.
+    extends: Site
+    attributes:
+      area:
+        type: geometry
+        multiplicity: "0..1"
+        description: Outline of the park.
+        constraints: {geometryType: MultiPolygon, crs: "EPSG:25832"}
+        status: proposed
+    sources: [S1, S2]
+
+  StreetSegment:
+    description: Section of a street between two junctions along which street trees stand.
+    extends: Site
+    attributes:
+      axis:
+        type: geometry
+        multiplicity: "0..1"
+        description: Centre line of the street segment.
+        constraints: {geometryType: LineString, crs: "EPSG:25832"}
+        status: proposed
+    sources: [S1, S2]
+
+  Tree:
+    description: An individual street or park tree recorded in the cadastre, standing or felled.
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical, lifecycleAttribute: status}
+    nfr:
+      volume: 180000
+      growth: 3000/year
+      readWriteRatio: "high read (map, nightly export) / low write"
+      accessPaths:
+        - "all trees in a bounding box of ~5,000 trees, < 1 s (map view)"
+        - "by id, by treeNumber"
+        - "by site"
+        - "all standing trees with latest vitality (nightly open data export)"
+        - "changed since <timestamp> (tablet sync, monthly exchange)"
+      latency: "bbox query of ~5,000 trees < 1 s"
+      classification: public
+      retention: "indefinite (felled trees stay for compensation tracking)"
+    attributes:
+      id:
+        type: uuid
+        description: Stable identifier; generated on the tablet when the tree is registered offline.
+        unique: true
+        decisions: [D-003]
+      treeNumber:
+        type: long
+        multiplicity: "0..1"
+        description: Human-readable tree number (legacy baum_nr); assigned by the server at sync for new trees.
+        unique: true
+        sources: [S2]
+        decisions: [D-003]
+      location:
+        type: geometry
+        description: Position of the trunk.
+        constraints: {geometryType: Point, crs: "EPSG:25832"}
+        sources: [S1, S2]
+      plantingYear:
+        type: integer
+        multiplicity: "0..1"
+        description: Year of planting; absent if unknown.
+        constraints: {min: 1600, max: 2100}
+        sources: [S1, S2]
+      status:
+        type: TreeStatus
+        description: Whether the tree is standing or felled.
+        default: standing
+        sources: [S1, S2]
+      fellingDate:
+        type: date
+        multiplicity: "0..1"
+        description: Date the tree was felled; set if and only if status = felled.
+        sources: [S1]
+      fellingReason:
+        type: FellingReason
+        multiplicity: "0..1"
+        description: Reason for felling; mandatory when felled (C-001).
+        sources: [S1]
+      fellingRemark:
+        type: text
+        multiplicity: "0..1"
+        description: Additional explanation of the felling.
+        status: proposed
+      currentVitality:
+        type: integer
+        derived: true
+        multiplicity: "0..1"
+        description: Vitality class of the most recent inspection (derived; stored redundantly in the database for the map and open data export).
+        constraints: {min: 1, max: 5}
+        sources: [S1]
+        decisions: [D-009]
+      lastInspectionDate:
+        type: date
+        derived: true
+        multiplicity: "0..1"
+        description: Date of the most recent inspection (derived; supports the yearly inspection rule C-008).
+        decisions: [D-009]
+    sources: [S1, S2]
+
+  LocationCorrection:
+    description: Record of a correction of a tree's location (e.g. after a GPS error), keeping the previous position.
+    attributes:
+      previousLocation:
+        type: geometry
+        description: Location before the correction.
+        constraints: {geometryType: Point, crs: "EPSG:25832"}
+        sources: [S1]
+      correctedLocation:
+        type: geometry
+        description: Location after the correction.
+        constraints: {geometryType: Point, crs: "EPSG:25832"}
+      correctedAt:
+        type: dateTime
+        description: When the correction was made.
+        sources: [S1]
+      reason:
+        type: string
+        multiplicity: "0..1"
+        description: Why the location was corrected.
+        constraints: {maxLength: 200}
+        status: proposed
+    sources: [S1]
+    decisions: [D-004]
+
+  Inspection:
+    description: A visit of an inspector to a tree, recording measurements, vitality and defects (UC2).
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit}
+    nfr:
+      volume: 6000000
+      growth: 200000/year
+      accessPaths:
+        - "by tree, newest first (latest vitality, inspection history)"
+        - "by inspection date range (monthly exchange, yearly coverage check)"
+      classification: personal
+      retention: "30 years (S1); inspector reference subject to Q-007"
+    notes: >-
+      Inspections are never deleted, neither physically nor logically (S1 UC2) — hence no
+      `deletion` in history. Corrections are updates captured by the audit trail.
+    attributes:
+      id: {type: uuid, description: Stable identifier; generated on the tablet., unique: true}
+      inspectionDate:
+        type: date
+        description: Date of the visit.
+        sources: [S1, S2]
+      trunkCircumference:
+        type: integer
+        multiplicity: "0..1"
+        description: Trunk circumference measured at 1.0 m above ground.
+        constraints: {min: 1, max: 2000, unit: cm}
+        sources: [S1, S2]
+        notes: "Measuring height 1.0 m assumed (A-007)."
+      crownDiameter:
+        type: decimal
+        multiplicity: "0..1"
+        description: Average crown diameter.
+        constraints: {precision: 4, scale: 1, min: 0, max: 99.9, unit: m}
+        sources: [S1]
+      height:
+        type: decimal
+        multiplicity: "0..1"
+        description: Total tree height.
+        constraints: {precision: 4, scale: 1, min: 0, max: 99.9, unit: m}
+        sources: [S1, S2]
+      vitality:
+        type: integer
+        description: Vitality class 1–5 (S1 refers to the Roloff scale; see Q-002).
+        constraints: {min: 1, max: 5}
+        sources: [S1, S2]
+      defects:
+        type: DefectFinding
+        multiplicity: "0..*"
+        description: Defects found during the inspection.
+        sources: [S1, S2]
+      remark:
+        type: text
+        multiplicity: "0..1"
+        description: Free-text note of the inspector.
+        status: proposed
+    sources: [S1, S2]
+
+  Measure:
+    description: Tree-care work (pruning, felling, cabling, ...) ordered by an arborist on the basis of an inspection (UC3).
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr:
+      volume: 250000
+      growth: 25000/year
+      accessPaths: ["open measures by due date and priority", "by inspection / tree", "by contractor"]
+      classification: internal
+      retention: "30 years, like inspections (A-010)"
+    attributes:
+      id: {type: uuid, description: Stable identifier of the measure., unique: true}
+      measureType:
+        type: MeasureType
+        description: Kind of work.
+        sources: [S1, S2]
+      orderDate:
+        type: date
+        description: Date the measure was ordered.
+        status: proposed
+      dueDate:
+        type: date
+        description: Date by which the measure must be done.
+        sources: [S1, S2]
+      priority:
+        type: MeasurePriority
+        description: Urgency.
+        sources: [S1]
+      status:
+        type: MeasureStatus
+        description: Processing state.
+        default: ordered
+        decisions: [D-007]
+      completionDate:
+        type: date
+        multiplicity: "0..1"
+        description: Date the work was done; set if and only if status = done.
+        sources: [S1, S2]
+      description:
+        type: text
+        multiplicity: "0..1"
+        description: Work instructions.
+        status: proposed
+    sources: [S1, S2]
+
+  Contractor:
+    description: Company (or in-house team) that carries out measures.
+    identifier: {attribute: id, strategy: uuid, external: false}
+    history: {mode: audit, deletion: logical}
+    nfr: {volume: 50, growth: stable, classification: internal}
+    attributes:
+      id: {type: uuid, description: Identifier of the contractor., unique: true}
+      name:
+        type: string
+        description: Company name.
+        constraints: {maxLength: 100}
+        sources: [S2]
+    sources: [S1, S2]
+
+  StaffMember:
+    description: Employee of the parks department acting as inspector or arborist.
+    identifier: {attribute: id, strategy: uuid, external: false}
+    history: {mode: audit, deletion: logical}
+    nfr:
+      volume: 100
+      growth: stable
+      classification: personal
+      retention: "see Q-007"
+    notes: "Names are personal data (S1 'Other'): never included in the open data export; only the id appears in the agency exchange file (A-005)."
+    attributes:
+      id: {type: uuid, description: Identifier of the staff member., unique: true}
+      name:
+        type: string
+        description: Full name (personal data).
+        constraints: {maxLength: 60}
+        sources: [S1, S2]
+      active:
+        type: boolean
+        description: Whether the person currently works as inspector/arborist.
+        default: true
+        status: proposed
+    sources: [S1, S2]
+    decisions: [D-008]
+
+associations:
+  - name: TreeSpecies
+    description: Species of the tree.
+    kind: reference
+    from: {class: Tree, role: trees, multiplicity: "0..*"}
+    to: {class: Species, role: species, multiplicity: "1"}
+    sources: [S1, S2]
+    notes: "Mandatory; legacy free-text names that cannot be matched need a decision (Q-003)."
+
+  - name: TreeSite
+    description: Park or street segment the tree belongs to.
+    kind: reference
+    from: {class: Tree, role: trees, multiplicity: "0..*"}
+    to: {class: Site, role: site, multiplicity: "1"}
+    sources: [S1, S2]
+    decisions: [D-008]
+
+  - name: TreeLocationCorrections
+    description: Corrections of the tree's location, oldest first.
+    kind: composition
+    from: {class: Tree, role: tree, multiplicity: "1"}
+    to: {class: LocationCorrection, role: locationCorrections, multiplicity: "0..*"}
+    sources: [S1]
+    decisions: [D-004]
+
+  - name: CompensationPlanting
+    description: A newly planted tree compensating one or more felled trees.
+    kind: reference
+    from: {class: Tree, role: replacements, multiplicity: "0..*"}
+    to: {class: Tree, role: replacedTrees, multiplicity: "0..*"}
+    navigable: both
+    sources: [S1]
+    notes: "S1 gives 'one or more new trees' per felled tree; the reverse side (one new tree for several felled) is assumed (A-011)."
+
+  - name: InspectedTree
+    description: The tree that was inspected.
+    kind: reference
+    from: {class: Inspection, role: inspections, multiplicity: "0..*"}
+    to: {class: Tree, role: tree, multiplicity: "1"}
+    sources: [S1, S2]
+    decisions: [D-010]
+
+  - name: InspectionInspector
+    description: Staff member who carried out the inspection.
+    kind: reference
+    from: {class: Inspection, role: inspections, multiplicity: "0..*"}
+    to: {class: StaffMember, role: inspector, multiplicity: "1"}
+    sources: [S1, S2]
+
+  - name: MeasureOrigin
+    description: Inspection on the basis of which the measure was ordered.
+    kind: reference
+    from: {class: Measure, role: measures, multiplicity: "0..*"}
+    to: {class: Inspection, role: inspection, multiplicity: "1"}
+    sources: [S1, S2]
+    notes: "Legacy kontrolle_id is nullable — see Q-005."
+
+  - name: MeasureOrderedBy
+    description: Arborist who ordered the measure.
+    kind: reference
+    from: {class: Measure, role: orderedMeasures, multiplicity: "0..*"}
+    to: {class: StaffMember, role: orderedBy, multiplicity: "0..1"}
+    sources: [S1]
+    status: proposed
+    notes: "Optional because legacy data has no orderer (A-008)."
+
+  - name: MeasureContractor
+    description: Contractor that carried out the measure.
+    kind: reference
+    from: {class: Measure, role: measures, multiplicity: "0..*"}
+    to: {class: Contractor, role: contractor, multiplicity: "0..1"}
+    sources: [S1, S2]
+
+constraints:
+  - id: C-001
+    appliesTo: Tree
+    description: status = felled if and only if fellingDate is set; fellingReason is mandatory for felled trees.
+    expression: "(status = 'felled') = (fellingDate IS NOT NULL) AND (status <> 'felled' OR fellingReason IS NOT NULL)"
+    sources: [S1]
+  - id: C-002
+    appliesTo: Tree
+    description: plantingYear must not be after the current year nor after the year of fellingDate.
+    expression: "plantingYear <= year(today) AND (fellingDate IS NULL OR plantingYear <= year(fellingDate))"
+  - id: C-003
+    appliesTo: Inspection
+    description: Inspections must never be deleted (physically or logically); all changes are audited.
+    sources: [S1]
+  - id: C-004
+    appliesTo: Inspection
+    description: inspectionDate must not be in the future and not after the felling date of the inspected tree.
+    expression: "inspectionDate <= today AND (tree.fellingDate IS NULL OR inspectionDate <= tree.fellingDate)"
+  - id: C-005
+    appliesTo: Inspection
+    description: Each defect type occurs at most once per inspection.
+    expression: "unique(defects.defectType)"
+  - id: C-006
+    appliesTo: Measure
+    description: status = done if and only if completionDate is set; completionDate and dueDate are not before orderDate.
+    expression: "(status = 'done') = (completionDate IS NOT NULL) AND completionDate >= orderDate AND dueDate >= orderDate"
+    sources: [S1]
+  - id: C-007
+    appliesTo: Tree
+    description: A felled tree must not get new inspections or new measures after its felling date.
+    expression: "see C-004; Measure.orderDate <= inspection.tree.fellingDate"
+  - id: C-008
+    appliesTo: Tree
+    description: Every standing tree is inspected at least once per calendar year (monitoring rule, reported, not enforced).
+    expression: "status = 'standing' → exists inspection with year(inspectionDate) = current year"
+    sources: [S1]
+  - id: C-009
+    appliesTo: Tree
+    description: In CompensationPlanting, every replaced tree has status felled and a tree cannot replace itself.
+    expression: "replacedTrees.status = 'felled' AND self ∉ replacedTrees"
+    sources: [S1]
+  - id: C-010
+    appliesTo: Tree
+    description: When the location of an existing tree is changed, a LocationCorrection with the previous and new location is recorded.
+    expression: "location changed → new LocationCorrection(previousLocation = old.location, correctedLocation = new.location)"
+    sources: [S1]
+    decisions: [D-004]
+  - id: C-011
+    appliesTo: Tree
+    description: currentVitality and lastInspectionDate equal the vitality and date of the latest inspection of the tree.
+    decisions: [D-009]
