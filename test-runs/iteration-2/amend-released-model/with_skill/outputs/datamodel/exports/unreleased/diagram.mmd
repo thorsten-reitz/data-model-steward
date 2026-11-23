@@ -1,0 +1,49 @@
+classDiagram
+  class PermitStatus {
+    <<enumeration>>
+    applied
+    granted
+    refused
+    revoked
+  }
+  class ConditionCategory {
+    <<enumeration>>
+    environmental
+    safety
+    other
+  }
+  class Address {
+    <<datatype>>
+    +string street [0..1]
+    +string postalCode
+    +string city
+  }
+  class Applicant {
+    <<datatype>>
+    +string name
+    +string organisation [0..1]
+    +Address address
+  }
+  class Authority {
+    +uri authorityId
+    +string name
+    +Address address
+  }
+  class Permit {
+    +uuid permitId
+    +string reference
+    +PermitStatus status
+    +date decisionDate [0..1]
+    +date validUntil [0..1]
+    +dateTime validUntilDateTime [0..1]
+    +geometry siteLocation
+    +string keywords [0..*]
+    +Applicant applicant [0..1]
+  }
+  class PermitCondition {
+    +text text
+    +date dueDate [0..1]
+    +ConditionCategory category [0..1]
+  }
+  Permit "0..*" --> "1" Authority : issuer
+  Permit "1" *-- "0..*" PermitCondition : conditions

@@ -1,0 +1,583 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/models/urban-tree-cadastre/0.1.0/schema.json",
+  "title": "Urban Tree Cadastre",
+  "description": "Street and park trees of the city with their locations, species, inspections, defects, ordered maintenance measures, fellings and compensation plantings. Used as the operational database of the parks department and as the basis for the monthly exchange file to the regional environmental agency and the nightly open data export.",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/Tree"
+    },
+    {
+      "$ref": "#/$defs/Species"
+    },
+    {
+      "$ref": "#/$defs/Site"
+    },
+    {
+      "$ref": "#/$defs/StaffMember"
+    },
+    {
+      "$ref": "#/$defs/Contractor"
+    },
+    {
+      "$ref": "#/$defs/Inspection"
+    },
+    {
+      "$ref": "#/$defs/Measure"
+    }
+  ],
+  "$defs": {
+    "TreeStatus": {
+      "description": "Lifecycle status of a tree in the cadastre.",
+      "type": "string",
+      "enum": [
+        "standing",
+        "felled"
+      ],
+      "x-enumLabels": {
+        "en": {
+          "standing": "Standing",
+          "felled": "Felled"
+        }
+      }
+    },
+    "FellingReason": {
+      "description": "Reason why a tree was felled or removed.",
+      "type": "string",
+      "examples": [
+        "diseaseOrDecay",
+        "dead",
+        "trafficSafety",
+        "stormDamage",
+        "construction",
+        "other"
+      ],
+      "$comment": "extensible code list; known values in examples",
+      "x-enumLabels": {
+        "en": {
+          "diseaseOrDecay": "Disease or decay",
+          "dead": "Dead tree",
+          "trafficSafety": "Traffic safety risk",
+          "stormDamage": "Storm damage",
+          "construction": "Construction works",
+          "other": "Other reason"
+        }
+      }
+    },
+    "VitalityClass": {
+      "description": "Vitality class assessed at an inspection, scale 1-5 as stated in the requirements and used in the legacy system. NOTE the published Roloff key has four classes 0-3 (Q-001).",
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "x-enumLabels": {
+        "en": {
+          "1": "1 - highest vitality",
+          "2": "2",
+          "3": "3",
+          "4": "4",
+          "5": "5 - lowest vitality / dying"
+        }
+      }
+    },
+    "DefectType": {
+      "description": "Kind of defect found at an inspection, from the department's defect list.",
+      "type": "string",
+      "examples": [
+        "deadwood",
+        "cavity",
+        "rootDamage"
+      ],
+      "$comment": "extensible code list; known values in examples",
+      "x-enumLabels": {
+        "en": {
+          "deadwood": "Deadwood",
+          "cavity": "Cavity",
+          "rootDamage": "Root damage"
+        }
+      }
+    },
+    "DefectSeverity": {
+      "description": "Severity of a defect.",
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "x-enumLabels": {
+        "en": {
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High"
+        }
+      }
+    },
+    "MeasureType": {
+      "description": "Kind of maintenance measure ordered for a tree.",
+      "type": "string",
+      "examples": [
+        "pruning",
+        "felling",
+        "cabling"
+      ],
+      "$comment": "extensible code list; known values in examples",
+      "x-enumLabels": {
+        "en": {
+          "pruning": "Pruning",
+          "felling": "Felling",
+          "cabling": "Crown cabling"
+        }
+      }
+    },
+    "MeasurePriority": {
+      "description": "Urgency of an ordered measure.",
+      "type": "string",
+      "enum": [
+        "immediate",
+        "high",
+        "normal",
+        "low"
+      ],
+      "x-enumLabels": {
+        "en": {
+          "immediate": "Immediate",
+          "high": "High",
+          "normal": "Normal",
+          "low": "Low"
+        }
+      }
+    },
+    "MeasureStatus": {
+      "description": "Processing status of a measure.",
+      "type": "string",
+      "enum": [
+        "ordered",
+        "done",
+        "cancelled"
+      ],
+      "x-enumLabels": {
+        "en": {
+          "ordered": "Ordered",
+          "done": "Done",
+          "cancelled": "Cancelled"
+        }
+      }
+    },
+    "SiteType": {
+      "description": "Kind of site a tree belongs to.",
+      "type": "string",
+      "enum": [
+        "park",
+        "streetSegment"
+      ],
+      "x-enumLabels": {
+        "en": {
+          "park": "Park",
+          "streetSegment": "Street segment"
+        }
+      }
+    },
+    "Tree": {
+      "description": "An individual street or park tree managed by the city. Felled trees remain in the cadastre with status 'felled'.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable identifier, generated on the tablet when the tree is registered (works offline).",
+          "type": "string",
+          "format": "uuid"
+        },
+        "treeNumber": {
+          "description": "Human-readable tree number (legacy baum_nr, tag number on the tree). Assigned by the server; empty until the first sync for trees registered offline.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "location": {
+          "description": "Current position of the trunk. Previous positions are kept in locationCorrections.",
+          "$ref": "https://geojson.org/schema/Point.json"
+        },
+        "plantingYear": {
+          "description": "Year of planting, if known.",
+          "type": "integer",
+          "minimum": 1600,
+          "maximum": 2100
+        },
+        "status": {
+          "description": "Lifecycle status.",
+          "$ref": "#/$defs/TreeStatus"
+        },
+        "fellingDate": {
+          "description": "Date the tree was felled (only for status felled).",
+          "type": "string",
+          "format": "date"
+        },
+        "fellingReason": {
+          "description": "Reason for felling (only for status felled).",
+          "$ref": "#/$defs/FellingReason"
+        },
+        "remark": {
+          "description": "Free-text remark.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "species": {
+          "description": "Reference to Species by identifier",
+          "type": "string",
+          "format": "uuid"
+        },
+        "site": {
+          "description": "Reference to Site by identifier",
+          "type": "string",
+          "format": "uuid"
+        },
+        "replacedTree": {
+          "description": "Reference to Tree by identifier",
+          "type": "string",
+          "format": "uuid"
+        },
+        "locationCorrections": {
+          "description": "Corrections of the tree's position, oldest first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TreeLocationCorrection"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "location",
+        "status",
+        "species",
+        "site"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-001: fellingDate and fellingReason are present if and only if status is felled.; C-002: A replaced tree must have status felled, and the replacement must not be the tree itself.; C-003: plantingYear is not after the felling year or the current year.; C-010: Every standing tree is inspected at least once per calendar year."
+    },
+    "TreeLocationCorrection": {
+      "description": "Record of a correction of a tree's position (e.g. GPS error), keeping the previous position and when it was corrected.",
+      "type": "object",
+      "properties": {
+        "correctedAt": {
+          "description": "When the correction was made.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "previousLocation": {
+          "description": "Position before the correction.",
+          "$ref": "https://geojson.org/schema/Point.json"
+        },
+        "reason": {
+          "description": "Why the position was corrected.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "correctedBy": {
+          "description": "Reference to StaffMember by identifier",
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "correctedAt",
+        "previousLocation"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-011: correctedAt is unique per tree and corrections are kept in chronological order."
+    },
+    "Species": {
+      "description": "Entry of the city's species list (botanical taxon), maintained by the arborist team.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable identifier of the species list entry.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "botanicalName": {
+          "description": "Scientific name (genus, species, optionally cultivar), e.g. 'Tilia cordata' or \"Acer platanoides 'Columnare'\".",
+          "type": "string",
+          "maxLength": 120
+        },
+        "commonName": {
+          "description": "Vernacular name used by the department.",
+          "type": "string",
+          "maxLength": 120
+        },
+        "gbifTaxonKey": {
+          "description": "Key of the matching taxon in the GBIF Backbone Taxonomy (https://www.gbif.org/species/{key}), for unambiguous exchange.",
+          "type": "integer"
+        },
+        "active": {
+          "description": "Whether the entry may be chosen for new trees.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "botanicalName",
+        "active"
+      ],
+      "unevaluatedProperties": false
+    },
+    "Site": {
+      "description": "Park or street segment a tree belongs to.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable identifier of the site.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "siteType": {
+          "description": "Park or street segment.",
+          "$ref": "#/$defs/SiteType"
+        },
+        "name": {
+          "description": "Name of the park or street.",
+          "type": "string",
+          "maxLength": 100
+        },
+        "streetSegmentKey": {
+          "description": "Key of the segment in the city's street register (street segments only).",
+          "type": "string",
+          "maxLength": 40
+        },
+        "area": {
+          "description": "Outline (park) or axis (street segment) of the site.",
+          "$ref": "https://geojson.org/schema/Geometry.json"
+        }
+      },
+      "required": [
+        "id",
+        "siteType",
+        "name"
+      ],
+      "unevaluatedProperties": false
+    },
+    "StaffMember": {
+      "description": "Employee of the parks department acting as inspector or arborist. Personal data.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Pseudonymous identifier; may appear in the agency exchange file, never with the name.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "description": "Full name. Personal data - must not appear in open data or the exchange file.",
+          "type": "string",
+          "maxLength": 100
+        },
+        "active": {
+          "description": "Whether the person currently works for the department.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "active"
+      ],
+      "unevaluatedProperties": false
+    },
+    "Contractor": {
+      "description": "Company that carries out measures.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable identifier of the contractor.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "description": "Company name.",
+          "type": "string",
+          "maxLength": 100
+        },
+        "active": {
+          "description": "Whether the contractor can be assigned to new measures.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "active"
+      ],
+      "unevaluatedProperties": false
+    },
+    "Inspection": {
+      "description": "Visual inspection of one tree on one date by an inspector. Never deleted.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable identifier, generated on the tablet.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "inspectionDate": {
+          "description": "Date of the inspection.",
+          "type": "string",
+          "format": "date"
+        },
+        "trunkCircumference": {
+          "description": "Trunk circumference measured at 1 m above ground (A-006).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000,
+          "$comment": "unit: cm"
+        },
+        "crownDiameter": {
+          "description": "Crown diameter.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 99.9,
+          "$comment": "unit: m"
+        },
+        "height": {
+          "description": "Tree height.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 99.9,
+          "$comment": "unit: m"
+        },
+        "vitalityClass": {
+          "description": "Vitality class (mandatory for new inspections, see C-005; optional for migrated legacy data).",
+          "$ref": "#/$defs/VitalityClass"
+        },
+        "remark": {
+          "description": "Free-text remark of the inspector.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "tree": {
+          "description": "Reference to Tree by identifier",
+          "type": "string",
+          "format": "uuid"
+        },
+        "inspector": {
+          "description": "Reference to StaffMember by identifier",
+          "type": "string",
+          "format": "uuid"
+        },
+        "defects": {
+          "description": "Defects found at the inspection.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InspectionDefect"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "inspectionDate",
+        "tree",
+        "inspector"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-004: inspectionDate is not in the future and not after the felling date of the tree.; C-005: New inspections must have a vitality class.; C-006: Each defect type occurs at most once per inspection.; C-007: Inspections are never physically deleted; erroneous records are only marked deleted, and every change is kept in the audit trail."
+    },
+    "InspectionDefect": {
+      "description": "A defect found at an inspection, with its severity.",
+      "type": "object",
+      "properties": {
+        "defectType": {
+          "description": "Kind of defect.",
+          "$ref": "#/$defs/DefectType"
+        },
+        "severity": {
+          "description": "Severity of the defect.",
+          "$ref": "#/$defs/DefectSeverity"
+        },
+        "remark": {
+          "description": "Short note, e.g. position on the tree.",
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "defectType",
+        "severity"
+      ],
+      "unevaluatedProperties": false
+    },
+    "Measure": {
+      "description": "Maintenance measure ordered for a tree, normally from an inspection, and later completed by a contractor.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable identifier.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "measureType": {
+          "description": "Kind of measure.",
+          "$ref": "#/$defs/MeasureType"
+        },
+        "orderDate": {
+          "description": "Date the measure was ordered.",
+          "type": "string",
+          "format": "date"
+        },
+        "dueDate": {
+          "description": "Date by which the measure must be done.",
+          "type": "string",
+          "format": "date"
+        },
+        "priority": {
+          "description": "Urgency.",
+          "$ref": "#/$defs/MeasurePriority"
+        },
+        "status": {
+          "description": "Processing status.",
+          "$ref": "#/$defs/MeasureStatus"
+        },
+        "completionDate": {
+          "description": "Date the measure was completed (status done).",
+          "type": "string",
+          "format": "date"
+        },
+        "description": {
+          "description": "Details of the work to be done.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "tree": {
+          "description": "Reference to Tree by identifier",
+          "type": "string",
+          "format": "uuid"
+        },
+        "inspection": {
+          "description": "Reference to Inspection by identifier",
+          "type": "string",
+          "format": "uuid"
+        },
+        "orderedBy": {
+          "description": "Reference to StaffMember by identifier",
+          "type": "string",
+          "format": "uuid"
+        },
+        "contractor": {
+          "description": "Reference to Contractor by identifier",
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "id",
+        "measureType",
+        "orderDate",
+        "dueDate",
+        "priority",
+        "status",
+        "tree"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-008: completionDate is present if and only if status is done; a done measure should name its contractor.; C-009: If the measure has an originating inspection, it concerns the same tree."
+    }
+  }
+}

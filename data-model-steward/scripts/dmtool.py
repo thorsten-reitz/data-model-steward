@@ -1311,6 +1311,27 @@ def _constraint_soft(c):
     return c.get("enforcement") in ("warning", "documented") or c.get("scope") == "new"
 
 
+def _members(m, cname):
+    """Attribute and role names visible on a class (incl. inherited attributes)."""
+    names = set(all_attrs(m, cname)) if cname in m["classes"] else set(attrs_of(m["datatypes"].get(cname, {})))
+    for a in m["associations"]:
+        for own, oth in (("from", "to"), ("to", "from")):
+            if a[own].get("class") == cname and a[oth].get("role"):
+                names.add(a[oth]["role"])
+    return names
+
+
+def _constraint_only_new(c, mo, mn):
+    """True when the rule's expression only refers to members that did not exist in the old model,
+    so existing data can't violate it (its values are absent/NULL there)."""
+    cls, expr = c.get("appliesTo"), c.get("expression")
+    if not cls or not expr or cls not in mo["classes"]:
+        return cls is not None and cls not in mo["classes"] and cls not in mo["datatypes"]
+    tokens = set(re.findall(r"[A-Za-z_]\w*", str(expr)))
+    referenced = tokens & _members(mn, cls)
+    return bool(referenced) and not (referenced & _members(mo, cls))
+
+
 def diff(mo, mn, consumers=None):
     """List of (level, element, change, tag); level patch|minor|major, tag doc|compatible|breaking|consumer-breaking."""
     raw = []
@@ -1420,17 +1441,26 @@ def diff(mo, mn, consumers=None):
     nc = {c.get("id"): c for c in mn["constraints"]}
     for cid, c in nc.items():
         if cid not in oc:
-            raw.append(("minor", f"constraint {cid}", "constraint added (not enforced or new data only)") if _constraint_soft(c)
-                       else ("major", f"constraint {cid}", "constraint added: existing data may violate it "
-                                                           "(use scope: new or enforcement: warning if it only targets new data)"))
+            if _constraint_soft(c):
+                raw.append(("minor", f"constraint {cid}", "constraint added (not enforced or new data only)"))
+            elif _constraint_only_new(c, mo, mn):
+                raw.append(("minor", f"constraint {cid}", "constraint added on elements new in this version "
+                                                          "(existing data can't violate it)"))
+            else:
+                raw.append(("major", f"constraint {cid}", "constraint added: existing data may violate it "
+                                                          "(use scope: new or enforcement: warning if it only targets new data)"))
             continue
         o = oc[cid]
         changed = o.get("expression") != c.get("expression") or \
             o.get("enforcement", "enforced") != c.get("enforcement", "enforced") or \
             o.get("scope", "all") != c.get("scope", "all")
         if changed:
-            raw.append(("minor", f"constraint {cid}", "constraint changed (not enforced or new data only)") if _constraint_soft(c)
-                       else ("major", f"constraint {cid}", "constraint changed or now enforced — review whether it is tightened"))
+            if _constraint_soft(c):
+                raw.append(("minor", f"constraint {cid}", "constraint changed (not enforced or new data only)"))
+            elif _constraint_only_new(c, mo, mn):
+                raw.append(("minor", f"constraint {cid}", "constraint changed; it only refers to elements new in this version"))
+            else:
+                raw.append(("major", f"constraint {cid}", "constraint changed or now enforced — review whether it is tightened"))
         elif o.get("description") != c.get("description"):
             raw.append(("patch", f"constraint {cid}", "description changed"))
     for cid in oc:
@@ -1442,7 +1472,9 @@ def diff(mo, mn, consumers=None):
         raw.append(("patch", "model.languages", "documentation languages changed"))
 
     mode = consumer_mode(mo, consumers)
-    projection = bool((mo["model"].get("compatibility") or {}).get("projection"))
+    # the new model may declare projection for the first time: it describes how the change is delivered
+    projection = bool((mn["model"].get("compatibility") or {}).get("projection")
+                      or (mo["model"].get("compatibility") or {}).get("projection"))
     out = []
     for lvl, path, msg in raw:
         if lvl == "risk":

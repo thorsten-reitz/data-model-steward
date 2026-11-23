@@ -1,0 +1,73 @@
+{
+  "modelVersion": "0.1.0",
+  "periodStart": "2026-10-01",
+  "periodEnd": "2026-10-31",
+  "createdAt": "2026-11-01T02:00:00+01:00",
+  "producer": "Parks Department",
+  "crs": "EPSG:25832",
+  "species": [
+    {"id": "6f1c2a3e-1111-4a5b-8c9d-000000000001", "botanicalName": "Tilia cordata", "commonName": "Small-leaved lime", "gbifTaxonKey": 3152047, "active": true}
+  ],
+  "sites": [
+    {"id": "6f1c2a3e-2222-4a5b-8c9d-000000000001", "siteType": "streetSegment", "name": "Lindenallee", "streetSegmentKey": "LIN-0042"}
+  ],
+  "contractors": [
+    {"id": "6f1c2a3e-3333-4a5b-8c9d-000000000001", "name": "Example Tree Care Ltd.", "active": true}
+  ],
+  "trees": [
+    {
+      "id": "6f1c2a3e-4444-4a5b-8c9d-000000000001",
+      "treeNumber": 10234,
+      "location": {"type": "Point", "coordinates": [567812.35, 5933410.12]},
+      "plantingYear": 1987,
+      "status": "felled",
+      "fellingDate": "2026-10-14",
+      "fellingReason": "diseaseOrDecay",
+      "species": "6f1c2a3e-1111-4a5b-8c9d-000000000001",
+      "site": "6f1c2a3e-2222-4a5b-8c9d-000000000001",
+      "locationCorrections": [
+        {"correctedAt": "2026-03-02T09:15:00+01:00", "previousLocation": {"type": "Point", "coordinates": [567815.0, 5933405.8]}, "reason": "GPS error at registration"}
+      ]
+    },
+    {
+      "id": "6f1c2a3e-4444-4a5b-8c9d-000000000002",
+      "location": {"type": "Point", "coordinates": [567813.10, 5933411.00]},
+      "plantingYear": 2026,
+      "status": "standing",
+      "species": "6f1c2a3e-1111-4a5b-8c9d-000000000001",
+      "site": "6f1c2a3e-2222-4a5b-8c9d-000000000001",
+      "replacedTree": "6f1c2a3e-4444-4a5b-8c9d-000000000001"
+    }
+  ],
+  "inspections": [
+    {
+      "id": "6f1c2a3e-5555-4a5b-8c9d-000000000001",
+      "inspectionDate": "2026-10-02",
+      "trunkCircumference": 145,
+      "crownDiameter": 8.5,
+      "height": 14.0,
+      "vitalityClass": 4,
+      "tree": "6f1c2a3e-4444-4a5b-8c9d-000000000001",
+      "inspector": "6f1c2a3e-6666-4a5b-8c9d-000000000001",
+      "defects": [
+        {"defectType": "cavity", "severity": "high"},
+        {"defectType": "deadwood", "severity": "medium"}
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "id": "6f1c2a3e-7777-4a5b-8c9d-000000000001",
+      "measureType": "felling",
+      "orderDate": "2026-10-02",
+      "dueDate": "2026-10-20",
+      "priority": "high",
+      "status": "done",
+      "completionDate": "2026-10-14",
+      "tree": "6f1c2a3e-4444-4a5b-8c9d-000000000001",
+      "inspection": "6f1c2a3e-5555-4a5b-8c9d-000000000001",
+      "orderedBy": "6f1c2a3e-6666-4a5b-8c9d-000000000002",
+      "contractor": "6f1c2a3e-3333-4a5b-8c9d-000000000001"
+    }
+  ]
+}

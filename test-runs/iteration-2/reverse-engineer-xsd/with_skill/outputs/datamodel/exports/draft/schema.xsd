@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:aq="http://example.org/airquality/2.1"
+           targetNamespace="http://example.org/airquality/2.1" elementFormDefault="qualified" version="0.1.0">
+  <xs:annotation>
+    <xs:documentation xml:lang="en">Hourly air quality measurements delivered by partner organisations: monitoring stations, their sampling points (one pollutant each) and the time series of observations.</xs:documentation>
+  </xs:annotation>
+  <xs:simpleType name="UUIDType">
+    <xs:restriction base="xs:string"><xs:pattern value="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"/></xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="ReferenceType">
+    <xs:annotation><xs:documentation xml:lang="en">Reference to another object by identifier or URI.</xs:documentation></xs:annotation>
+    <xs:attribute name="href" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:simpleType name="StationKindType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">Classification of a station by the dominant emission sources influencing it.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="traffic">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Traffic</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="industrial">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Industrial</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="background">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Background</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="PollutantType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">Air pollutant measured at a sampling point. S1 says the value is a "code from the EEA pollutant vocabulary, e.g. NO2, PM10, O3", i.e. the vocabulary's notation, not its numeric identifier (Q-002). Values from AQD - Air Quality Pollutants &lt;http://dd.eionet.europa.eu/vocabulary/aq/pollutant&gt; retrieved 2026-11-23 (subset). Extensible code list. Known values: NO2, PM10, PM2.5, O3, SO2, CO</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="ConcentrationUnitType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">Unit of measure of the observed values at a sampling point. Extensible code list. Known values: ug.m-3, mg.m-3</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="ObservationValidityType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">Validity flag of an observation (EEA AQD observation validity). Values from AQD - Observation Validity &lt;http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity&gt; retrieved 2026-11-23. Extensible code list. Known values: -99, -1, 1, 2, 3, 4</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="ObservationVerificationType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">Verification status of an observation (EEA AQD observation verification). Values from AQD - Observation Verification &lt;http://dd.eionet.europa.eu/vocabulary/aq/observationverification&gt; retrieved 2026-11-23. Extensible code list. Known values: 1, 2, 3</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:int"/>
+  </xs:simpleType>
+  <xs:complexType name="PositionType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">Geographic position of a station. CRS is not stated in S1; WGS 84 (EPSG:4326) decimal degrees assumed (A-005). Kept as lat/lon/altitude rather than a geometry for wire compatibility (D-002).</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="lat" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Latitude in decimal degrees (assumed WGS 84).</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:decimal">
+            <xs:minInclusive value="-90"/>
+            <xs:maxInclusive value="90"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="lon" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Longitude in decimal degrees (assumed WGS 84).</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:decimal">
+            <xs:minInclusive value="-180"/>
+            <xs:maxInclusive value="180"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="altitude" type="xs:decimal" minOccurs="0" nillable="true">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Altitude of the station. Unit and vertical datum not stated in S1; metres above mean sea level assumed (A-005). S1 allows both omission and xsi:nil — meaning of the difference unclear (Q-004).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="ObservationCollectionType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">One delivery from a partner: a set of stations with their sampling points and observations. Root element of the exchange document.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="station" type="aq:StationType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="ObservationCollection" type="aq:ObservationCollectionType"/>
+  <xs:complexType name="StationType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">Air quality monitoring station at a fixed location.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="stationCode" type="xs:string" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Code of the station, assumed stable across deliveries and used as the persistent identifier (A-002). Possibly the EEA/national station code (e.g. "DEBE010") — to confirm.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="name" type="xs:string" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Name of the station.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="operator" type="xs:string" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Organisation operating the station (free text in S1).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="position" type="aq:PositionType" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Location of the station.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="stationType" type="aq:StationKindType" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Station classification by dominant emission source.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="sampling" type="aq:SamplingPointType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required">
+      <xs:annotation>
+        <xs:documentation xml:lang="en">Document-local identifier (xs:ID) of the station element. Only unique within one delivery and must not start with a digit; not to be used as a persistent key (Q-001).</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+  <xs:complexType name="SamplingPointType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">Measurement configuration at a station for one pollutant, delivering one time series of observations in one unit. Constraints: C-002: Within one sampling point, at most one observation per interval begin (no duplicates or overlapping intervals in one delivery).</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="pollutant" type="aq:PollutantType" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Pollutant measured, as the notation code of the EEA pollutant vocabulary (e.g. NO2).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="unit" type="aq:ConcentrationUnitType" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Unit of all observation values of this sampling point.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="observation" type="aq:ObservationType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required">
+      <xs:annotation>
+        <xs:documentation xml:lang="en">Identifier (xs:ID) of the sampling point. S1 only makes it unique within one document; whether it is stable across deliveries is unknown (Q-001). Used as identifier provisionally.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+  <xs:complexType name="ObservationType">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">One aggregated measurement result of a sampling point for a time interval (normally one hour). Constraints: C-001: The end of the interval must be after its begin.; C-003: begin and end must carry an explicit UTC offset (e.g. 2026-11-23T10:00:00+01:00). S1's xs:dateTime also accepts local times without offset; such values are ambiguous.; C-004: If value is nil, validity must be a "not valid" code (-1 or -99); if validity is 1–4, value must not be nil.; C-005: Interval length is one hour for hourly data (end - begin = PT1H).</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="begin" type="xs:dateTime" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Start of the averaging interval (inclusive). Must carry a UTC offset (C-003).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="end" type="xs:dateTime" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">End of the averaging interval (exclusive assumed, A-006).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="value" type="xs:double" minOccurs="1" nillable="true">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Measured value in the unit of the sampling point. xsi:nil when no value is available; the reason should then be expressed by the validity flag (C-004).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="validity" type="aq:ObservationValidityType" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Validity flag (EEA AQD observation validity code).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="verification" type="aq:ObservationVerificationType" minOccurs="1">
+        <xs:annotation>
+          <xs:documentation xml:lang="en">Verification status (EEA AQD observation verification code).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

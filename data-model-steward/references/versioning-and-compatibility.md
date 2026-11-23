@@ -100,6 +100,7 @@ reports risk changes as follows; you can override the mode with `--consumers`:
 | tighten constraint | **breaks** | ok | major |
 | add enforced rule (`constraints`) for all data | may break | ok | major |
 | add rule with `scope: new` or `enforcement: warning`/`documented` | ok | ok | minor |
+| add rule whose expression only refers to attributes/roles new in this version | ok | ok | minor |
 | add value to closed enum | ok | risk | strict: major · tolerant: minor |
 | add value to extensible enum | ok | ok | minor (no model change needed if values are managed externally) |
 | make enum closed | may break | ok | major |
@@ -116,8 +117,9 @@ With strict consumers, even an optional addition breaks them. Tell the user, the
 1. **A projection for old consumers.** The exchange interface sends each partner documents
    in the version they implemented, leaving out elements added later. That's always
    possible when additions are optional. Record which partner is on which version. Once
-   the interface does this, set `compatibility.projection: true`. Additions then count
-   as minor versions, and the CHANGELOG lists what each projection must drop.
+   the interface does this, set `compatibility.projection: true`. Set it in the new model
+   if the decision is made now; `diff` honours it from either version. Additions then
+   count as minor versions, and the CHANGELOG lists what each projection must drop.
 2. **Derive instead of store.** For example, compute "expired" from `validUntil` instead
    of adding a value to a closed status list.
 3. **Agree on open content for the future.** In the next major version, switch to

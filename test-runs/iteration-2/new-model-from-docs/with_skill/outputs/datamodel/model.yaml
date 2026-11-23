@@ -1,0 +1,600 @@
+# Canonical, implementation-neutral data model. Format: references/model-format.md
+# Check with: dmtool.py validate model.yaml
+# FIRST DRAFT (2026-11-23), produced without user interview. Every element marked
+# `status: proposed` and every A-xxx in open-questions.md still needs confirmation.
+
+model:
+  name: UrbanTreeCadastre
+  title: Urban Tree Cadastre
+  description: >-
+    Street and park trees of the city with their locations, species, inspections, defects,
+    ordered maintenance measures, fellings and compensation plantings. Used as the operational
+    database of the parks department and as the basis for the monthly exchange file to the
+    regional environmental agency and the nightly open data export.
+  namespace: https://example.org/models/urban-tree-cadastre   # placeholder, see Q-010
+  prefix: utc
+  version: 0.1.0
+  status: draft
+  purposes: [persistence, exchange]
+  targets: [postgres, jsonschema]
+  languages:
+    identifiers: en
+    documentation: [en]            # A-001: German could be added as second documentation language
+  compatibility:
+    consumers: strict              # A-012: regional agency assumed to validate strictly
+  standards: []
+  sources: [S1, S2]
+  decisions: [D-001, D-002, D-009]
+  exportOptions:
+    jsonschema: {closed: true}     # no single root class; the file envelope is hand-written (D-009)
+
+enumerations:
+  TreeStatus:
+    description: Lifecycle status of a tree in the cadastre.
+    extensible: false
+    values:
+      - {code: standing, label: Standing, description: "Tree exists at its location (alive or dead but not yet felled)."}
+      - {code: felled, label: Felled, description: "Tree has been felled or removed; record kept for compensation tracking."}
+    sources: [S1, S2]
+    decisions: [D-005]
+    status: proposed
+
+  FellingReason:
+    description: Reason why a tree was felled or removed.
+    extensible: true
+    authority: Parks department
+    values:
+      - {code: diseaseOrDecay, label: Disease or decay}
+      - {code: dead, label: Dead tree}
+      - {code: trafficSafety, label: Traffic safety risk}
+      - {code: stormDamage, label: Storm damage}
+      - {code: construction, label: Construction works}
+      - {code: other, label: Other reason}
+    sources: [S1]
+    notes: Values are assumptions (A-007); the department's real list is to be imported.
+    status: proposed
+
+  VitalityClass:
+    description: >-
+      Vitality class assessed at an inspection, scale 1-5 as stated in the requirements and
+      used in the legacy system. NOTE the published Roloff key has four classes 0-3 (Q-001).
+    extensible: false
+    codeType: integer
+    values:
+      - {code: 1, label: "1 - highest vitality"}
+      - {code: 2, label: "2"}
+      - {code: 3, label: "3"}
+      - {code: 4, label: "4"}
+      - {code: 5, label: "5 - lowest vitality / dying"}
+    sources: [S1, S2, S4]
+    decisions: [D-007]
+    notes: Direction of the scale (1 = best) is an assumption (A-005).
+    status: proposed
+
+  DefectType:
+    description: Kind of defect found at an inspection, from the department's defect list.
+    extensible: true
+    authority: Parks department
+    values:
+      - {code: deadwood, label: Deadwood}
+      - {code: cavity, label: Cavity}
+      - {code: rootDamage, label: Root damage}
+    sources: [S1, S2]
+    decisions: [D-006]
+    notes: Only the examples from S1 are listed; the full department list must be imported (Q-003).
+    status: proposed
+
+  DefectSeverity:
+    description: Severity of a defect.
+    extensible: false
+    values:
+      - {code: low, label: Low}
+      - {code: medium, label: Medium}
+      - {code: high, label: High}
+    sources: [S1]
+
+  MeasureType:
+    description: Kind of maintenance measure ordered for a tree.
+    extensible: true
+    authority: Parks department
+    values:
+      - {code: pruning, label: Pruning}
+      - {code: felling, label: Felling}
+      - {code: cabling, label: Crown cabling}
+    sources: [S1, S2]
+    decisions: [D-006]
+    notes: S1 lists these with an ellipsis; further values to be imported from the legacy column massnahme.art (Q-003).
+    status: proposed
+
+  MeasurePriority:
+    description: Urgency of an ordered measure.
+    extensible: false
+    values:
+      - {code: immediate, label: Immediate, description: "Danger to traffic safety; act at once."}
+      - {code: high, label: High}
+      - {code: normal, label: Normal}
+      - {code: low, label: Low}
+    sources: [S1]
+    notes: Values are an assumption (A-008); S1 only says "a priority".
+    status: proposed
+
+  MeasureStatus:
+    description: Processing status of a measure.
+    extensible: false
+    values:
+      - {code: ordered, label: Ordered}
+      - {code: done, label: Done}
+      - {code: cancelled, label: Cancelled}
+    sources: [S1]
+    notes: "'cancelled' is not in S1 but needed because measures are not deleted (A-009)."
+    status: proposed
+
+  SiteType:
+    description: Kind of site a tree belongs to.
+    extensible: false
+    values:
+      - {code: park, label: Park}
+      - {code: streetSegment, label: Street segment}
+    sources: [S1, S2]
+
+datatypes: {}
+
+classes:
+  Tree:
+    description: >-
+      An individual street or park tree managed by the city. Felled trees remain in the
+      cadastre with status 'felled'.
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical, lifecycleAttribute: status}
+    nfr:
+      volume: 180000
+      growth: 3000/year
+      readWriteRatio: "high read (map, open data), low write"
+      accessPaths: ["by id", "by treeNumber", "by bounding box (map, ~5,000 trees < 1 s)", "by site", "by species", "standing trees (nightly open data)"]
+      latency: "bounding-box query of ~5,000 trees < 1 s"
+      classification: public
+      retention: unlimited (felled trees are kept)
+    attributes:
+      id:
+        type: uuid
+        unique: true
+        description: Stable identifier, generated on the tablet when the tree is registered (works offline).
+        decisions: [D-003]
+      treeNumber:
+        type: integer
+        multiplicity: "0..1"
+        unique: true
+        description: Human-readable tree number (legacy baum_nr, tag number on the tree). Assigned by the server; empty until the first sync for trees registered offline.
+        constraints: {min: 1}
+        sources: [S2]
+        decisions: [D-003]
+        status: proposed
+      location:
+        type: geometry
+        description: Current position of the trunk. Previous positions are kept in locationCorrections.
+        constraints: {geometryType: Point, crs: "EPSG:25832"}
+        sources: [S1]
+      plantingYear:
+        type: integer
+        multiplicity: "0..1"
+        description: Year of planting, if known.
+        constraints: {min: 1600, max: 2100}
+        sources: [S1, S2]
+      status:
+        type: TreeStatus
+        default: standing
+        description: Lifecycle status.
+        sources: [S1, S2]
+      fellingDate:
+        type: date
+        multiplicity: "0..1"
+        description: Date the tree was felled (only for status felled).
+        sources: [S1]
+      fellingReason:
+        type: FellingReason
+        multiplicity: "0..1"
+        description: Reason for felling (only for status felled).
+        sources: [S1]
+      remark:
+        type: text
+        multiplicity: "0..1"
+        description: Free-text remark.
+        constraints: {maxLength: 2000}
+        status: proposed
+    sources: [S1, S2]
+
+  TreeLocationCorrection:
+    description: >-
+      Record of a correction of a tree's position (e.g. GPS error), keeping the previous
+      position and when it was corrected.
+    history: {mode: none}
+    nfr: {volume: 0, growth: "few thousand/year (estimate)", classification: internal}
+    attributes:
+      correctedAt:
+        type: dateTime
+        description: When the correction was made.
+      previousLocation:
+        type: geometry
+        description: Position before the correction.
+        constraints: {geometryType: Point, crs: "EPSG:25832"}
+      reason:
+        type: text
+        multiplicity: "0..1"
+        description: Why the position was corrected.
+        constraints: {maxLength: 500}
+    sources: [S1]
+    decisions: [D-008]
+
+  Species:
+    description: Entry of the city's species list (botanical taxon), maintained by the arborist team.
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr: {volume: 900, growth: "a few entries per year", classification: public}
+    attributes:
+      id:
+        type: uuid
+        unique: true
+        description: Stable identifier of the species list entry.
+      botanicalName:
+        type: string
+        unique: true
+        description: Scientific name (genus, species, optionally cultivar), e.g. 'Tilia cordata' or "Acer platanoides 'Columnare'".
+        constraints: {maxLength: 120}
+        sources: [S1, S2]
+      commonName:
+        type: string
+        multiplicity: "0..1"
+        description: Vernacular name used by the department.
+        constraints: {maxLength: 120}
+        status: proposed
+      gbifTaxonKey:
+        type: long
+        multiplicity: "0..1"
+        description: Key of the matching taxon in the GBIF Backbone Taxonomy (https://www.gbif.org/species/{key}), for unambiguous exchange.
+        sources: [S3]
+        decisions: [D-004]
+        status: proposed
+      active:
+        type: boolean
+        default: true
+        description: Whether the entry may be chosen for new trees.
+        status: proposed
+    sources: [S1]
+    decisions: [D-004]
+
+  Site:
+    description: Park or street segment a tree belongs to.
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr: {volume: 5000, growth: stable, classification: public, notes: "volume is a guess"}
+    attributes:
+      id:
+        type: uuid
+        unique: true
+        description: Stable identifier of the site.
+      siteType:
+        type: SiteType
+        description: Park or street segment.
+      name:
+        type: string
+        description: Name of the park or street.
+        constraints: {maxLength: 100}
+        sources: [S2]
+      streetSegmentKey:
+        type: string
+        multiplicity: "0..1"
+        description: Key of the segment in the city's street register (street segments only).
+        constraints: {maxLength: 40}
+        status: proposed
+      area:
+        type: geometry
+        multiplicity: "0..1"
+        description: Outline (park) or axis (street segment) of the site.
+        constraints: {geometryType: Geometry, crs: "EPSG:25832"}
+        status: proposed
+    sources: [S1, S2]
+    decisions: [D-010]
+
+  StaffMember:
+    description: Employee of the parks department acting as inspector or arborist. Personal data.
+    identifier: {attribute: id, strategy: uuid, external: false}
+    history: {mode: audit, deletion: logical}
+    nfr: {volume: 50, growth: stable, classification: personal, retention: "per HR/GDPR rules (Q-007)"}
+    attributes:
+      id:
+        type: uuid
+        unique: true
+        description: Pseudonymous identifier; may appear in the agency exchange file, never with the name.
+      name:
+        type: string
+        description: Full name. Personal data - must not appear in open data or the exchange file.
+        constraints: {maxLength: 100}
+        sources: [S1, S2]
+      active:
+        type: boolean
+        default: true
+        description: Whether the person currently works for the department.
+    sources: [S1]
+    decisions: [D-011]
+
+  Contractor:
+    description: Company that carries out measures.
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr: {volume: 100, growth: stable, classification: internal}
+    attributes:
+      id:
+        type: uuid
+        unique: true
+        description: Stable identifier of the contractor.
+      name:
+        type: string
+        description: Company name.
+        constraints: {maxLength: 100}
+        sources: [S2]
+      active:
+        type: boolean
+        default: true
+        description: Whether the contractor can be assigned to new measures.
+    sources: [S1, S2]
+
+  Inspection:
+    description: Visual inspection of one tree on one date by an inspector. Never deleted.
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr:
+      volume: 0
+      growth: 200000/year
+      readWriteRatio: "write-heavy in evening sync bursts"
+      accessPaths: ["by tree, latest first", "by date range", "by inspector"]
+      classification: personal
+      retention: 30 years
+      notes: "~6 million rows after 30 years; no partitioning needed, BRIN on inspectionDate (tuning.sql)."
+    attributes:
+      id:
+        type: uuid
+        unique: true
+        description: Stable identifier, generated on the tablet.
+      inspectionDate:
+        type: date
+        description: Date of the inspection.
+        sources: [S1, S2]
+      trunkCircumference:
+        type: integer
+        multiplicity: "0..1"
+        description: Trunk circumference measured at 1 m above ground (A-006).
+        constraints: {min: 1, max: 2000, unit: cm}
+        sources: [S1, S2]
+      crownDiameter:
+        type: decimal
+        multiplicity: "0..1"
+        description: Crown diameter.
+        constraints: {precision: 4, scale: 1, min: 0, max: 99.9, unit: m}
+        sources: [S1]
+      height:
+        type: decimal
+        multiplicity: "0..1"
+        description: Tree height.
+        constraints: {precision: 4, scale: 1, min: 0, max: 99.9, unit: m}
+        sources: [S1, S2]
+      vitalityClass:
+        type: VitalityClass
+        multiplicity: "0..1"
+        description: Vitality class (mandatory for new inspections, see C-005; optional for migrated legacy data).
+        sources: [S1, S2]
+      remark:
+        type: text
+        multiplicity: "0..1"
+        description: Free-text remark of the inspector.
+        constraints: {maxLength: 2000}
+        status: proposed
+    sources: [S1, S2]
+
+  InspectionDefect:
+    description: A defect found at an inspection, with its severity.
+    history: {mode: none}
+    attributes:
+      defectType:
+        type: DefectType
+        description: Kind of defect.
+      severity:
+        type: DefectSeverity
+        description: Severity of the defect.
+      remark:
+        type: string
+        multiplicity: "0..1"
+        description: Short note, e.g. position on the tree.
+        constraints: {maxLength: 200}
+        status: proposed
+    sources: [S1, S2]
+
+  Measure:
+    description: Maintenance measure ordered for a tree, normally from an inspection, and later completed by a contractor.
+    identifier: {attribute: id, strategy: uuid, external: true}
+    history: {mode: audit, deletion: logical, lifecycleAttribute: status}
+    nfr:
+      volume: 0
+      growth: 25000/year
+      accessPaths: ["open measures by due date and priority", "by tree", "by contractor"]
+      classification: internal
+      retention: 30 years (assumed same as inspections, A-010)
+    attributes:
+      id:
+        type: uuid
+        unique: true
+        description: Stable identifier.
+      measureType:
+        type: MeasureType
+        description: Kind of measure.
+        sources: [S1, S2]
+      orderDate:
+        type: date
+        description: Date the measure was ordered.
+        status: proposed
+      dueDate:
+        type: date
+        description: Date by which the measure must be done.
+        sources: [S1, S2]
+      priority:
+        type: MeasurePriority
+        description: Urgency.
+        sources: [S1]
+      status:
+        type: MeasureStatus
+        default: ordered
+        description: Processing status.
+      completionDate:
+        type: date
+        multiplicity: "0..1"
+        description: Date the measure was completed (status done).
+        sources: [S1, S2]
+      description:
+        type: text
+        multiplicity: "0..1"
+        description: Details of the work to be done.
+        constraints: {maxLength: 2000}
+        status: proposed
+    sources: [S1, S2]
+
+associations:
+  - name: TreeSpecies
+    description: Species of the tree.
+    kind: reference
+    from: {class: Tree, role: trees, multiplicity: "0..*"}
+    to: {class: Species, role: species, multiplicity: "1"}
+    sources: [S1]
+  - name: TreeSite
+    description: Park or street segment the tree belongs to.
+    kind: reference
+    from: {class: Tree, role: trees, multiplicity: "0..*"}
+    to: {class: Site, role: site, multiplicity: "1"}
+    sources: [S1]
+    notes: Legacy trees without park/street need a placeholder site or manual assignment (migration).
+  - name: TreeReplacement
+    description: Compensation planting - the new tree replaces a felled tree. A felled tree may be replaced by several new trees.
+    kind: reference
+    from: {class: Tree, role: replacementTrees, multiplicity: "0..*"}
+    to: {class: Tree, role: replacedTree, multiplicity: "0..1"}
+    sources: [S1]
+    decisions: [D-005]
+  - name: TreeLocationCorrections
+    description: Corrections of the tree's position, oldest first.
+    kind: composition
+    from: {class: Tree, role: tree, multiplicity: "1"}
+    to: {class: TreeLocationCorrection, role: locationCorrections, multiplicity: "0..*"}
+    ordered: true
+    sources: [S1]
+    decisions: [D-008]
+  - name: LocationCorrectedBy
+    description: Staff member who corrected the position.
+    kind: reference
+    from: {class: TreeLocationCorrection, role: corrections, multiplicity: "0..*"}
+    to: {class: StaffMember, role: correctedBy, multiplicity: "0..1"}
+  - name: InspectedTree
+    description: The tree that was inspected.
+    kind: reference
+    from: {class: Inspection, role: inspections, multiplicity: "0..*"}
+    to: {class: Tree, role: tree, multiplicity: "1"}
+    sources: [S1, S2]
+  - name: InspectionInspector
+    description: The inspector who carried out the inspection.
+    kind: reference
+    from: {class: Inspection, role: inspections, multiplicity: "0..*"}
+    to: {class: StaffMember, role: inspector, multiplicity: "1"}
+    sources: [S1, S2]
+    decisions: [D-011]
+  - name: InspectionDefects
+    description: Defects found at the inspection.
+    kind: composition
+    from: {class: Inspection, role: inspection, multiplicity: "1"}
+    to: {class: InspectionDefect, role: defects, multiplicity: "0..*"}
+    sources: [S1, S2]
+  - name: MeasureTree
+    description: The tree the measure is for.
+    kind: reference
+    from: {class: Measure, role: measures, multiplicity: "0..*"}
+    to: {class: Tree, role: tree, multiplicity: "1"}
+    decisions: [D-012]
+    status: proposed
+  - name: MeasureOrigin
+    description: The inspection from which the measure was ordered.
+    kind: reference
+    from: {class: Measure, role: measures, multiplicity: "0..*"}
+    to: {class: Inspection, role: inspection, multiplicity: "0..1"}
+    sources: [S1, S2]
+    decisions: [D-012]
+  - name: MeasureOrderedBy
+    description: Arborist who ordered the measure.
+    kind: reference
+    from: {class: Measure, role: orderedMeasures, multiplicity: "0..*"}
+    to: {class: StaffMember, role: orderedBy, multiplicity: "0..1"}
+    sources: [S1]
+    status: proposed
+  - name: MeasureContractor
+    description: Contractor that carried out the measure.
+    kind: reference
+    from: {class: Measure, role: measures, multiplicity: "0..*"}
+    to: {class: Contractor, role: contractor, multiplicity: "0..1"}
+    sources: [S1, S2]
+
+constraints:
+  - id: C-001
+    appliesTo: Tree
+    description: fellingDate and fellingReason are present if and only if status is felled.
+    expression: "(status = felled) = (fellingDate is set and fellingReason is set)"
+    enforcement: enforced
+    scope: new
+    notes: scope new because legacy felled trees (gefaellt = 'J') have no date or reason.
+    sources: [S1, S2]
+  - id: C-002
+    appliesTo: Tree
+    description: A replaced tree must have status felled, and the replacement must not be the tree itself.
+    expression: "replacedTree is not set or (replacedTree.status = felled and replacedTree != self)"
+    sources: [S1]
+  - id: C-003
+    appliesTo: Tree
+    description: plantingYear is not after the felling year or the current year.
+    expression: "plantingYear <= year(coalesce(fellingDate, today))"
+  - id: C-004
+    appliesTo: Inspection
+    description: inspectionDate is not in the future and not after the felling date of the tree.
+    expression: "inspectionDate <= today and (tree.fellingDate is not set or inspectionDate <= tree.fellingDate)"
+    enforcement: warning
+  - id: C-005
+    appliesTo: Inspection
+    description: New inspections must have a vitality class.
+    expression: "vitalityClass is set"
+    enforcement: enforced
+    scope: new
+    sources: [S1]
+  - id: C-006
+    appliesTo: Inspection
+    description: Each defect type occurs at most once per inspection.
+    expression: "unique(defects.defectType)"
+  - id: C-007
+    appliesTo: Inspection
+    description: Inspections are never physically deleted; erroneous records are only marked deleted, and every change is kept in the audit trail.
+    enforcement: documented
+    sources: [S1]
+  - id: C-008
+    appliesTo: Measure
+    description: completionDate is present if and only if status is done; a done measure should name its contractor.
+    expression: "(status = done) = (completionDate is set); status = done implies contractor is set (warning)"
+    enforcement: enforced
+    scope: new
+    sources: [S1]
+  - id: C-009
+    appliesTo: Measure
+    description: If the measure has an originating inspection, it concerns the same tree.
+    expression: "inspection is not set or inspection.tree = tree"
+  - id: C-010
+    appliesTo: Tree
+    description: Every standing tree is inspected at least once per calendar year.
+    expression: "status = standing implies exists inspection with year(inspectionDate) = current year (checked at year end)"
+    enforcement: warning
+    sources: [S1]
+  - id: C-011
+    appliesTo: TreeLocationCorrection
+    description: correctedAt is unique per tree and corrections are kept in chronological order.
+    expression: "ordered by correctedAt"
+    enforcement: documented

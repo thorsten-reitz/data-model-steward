@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "http://example.org/airquality/2.1/0.1.0/schema.json",
+  "title": "Air Quality Observations",
+  "description": "Hourly air quality measurements delivered by partner organisations: monitoring stations, their sampling points (one pollutant each) and the time series of observations.",
+  "$ref": "#/$defs/ObservationCollection",
+  "$defs": {
+    "StationKind": {
+      "description": "Classification of a station by the dominant emission sources influencing it.",
+      "type": "string",
+      "enum": [
+        "traffic",
+        "industrial",
+        "background"
+      ],
+      "x-enumLabels": {
+        "en": {
+          "traffic": "Traffic",
+          "industrial": "Industrial",
+          "background": "Background"
+        }
+      }
+    },
+    "Pollutant": {
+      "description": "Air pollutant measured at a sampling point. S1 says the value is a \"code from the EEA pollutant vocabulary, e.g. NO2, PM10, O3\", i.e. the vocabulary's notation, not its numeric identifier (Q-002).",
+      "type": "string",
+      "examples": [
+        "NO2",
+        "PM10",
+        "PM2.5",
+        "O3",
+        "SO2",
+        "CO"
+      ],
+      "$comment": "extensible code list; known values in examples",
+      "x-enumLabels": {
+        "en": {
+          "NO2": "Nitrogen dioxide (air)",
+          "PM10": "Particulate matter < 10 µm (aerosol)",
+          "PM2.5": "Particulate matter < 2.5 µm (aerosol)",
+          "O3": "Ozone (air)",
+          "SO2": "Sulphur dioxide (air)",
+          "CO": "Carbon monoxide (air)"
+        }
+      },
+      "x-vocabulary": {
+        "uri": "http://dd.eionet.europa.eu/vocabulary/aq/pollutant",
+        "name": "AQD - Air Quality Pollutants",
+        "publisher": "European Environment Agency (Eionet Data Dictionary)",
+        "retrieved": "2026-11-23",
+        "licence": "unknown (to be checked on the register)"
+      },
+      "x-enumUris": {
+        "NO2": "http://dd.eionet.europa.eu/vocabulary/aq/pollutant/8",
+        "PM10": "http://dd.eionet.europa.eu/vocabulary/aq/pollutant/5",
+        "PM2.5": "http://dd.eionet.europa.eu/vocabulary/aq/pollutant/6001",
+        "O3": "http://dd.eionet.europa.eu/vocabulary/aq/pollutant/7",
+        "SO2": "http://dd.eionet.europa.eu/vocabulary/aq/pollutant/1",
+        "CO": "http://dd.eionet.europa.eu/vocabulary/aq/pollutant/10"
+      }
+    },
+    "ConcentrationUnit": {
+      "description": "Unit of measure of the observed values at a sampling point.",
+      "type": "string",
+      "examples": [
+        "ug.m-3",
+        "mg.m-3"
+      ],
+      "$comment": "extensible code list; known values in examples",
+      "x-enumLabels": {
+        "en": {
+          "ug.m-3": "microgram per cubic metre",
+          "mg.m-3": "milligram per cubic metre"
+        }
+      }
+    },
+    "ObservationValidity": {
+      "description": "Validity flag of an observation (EEA AQD observation validity).",
+      "type": "integer",
+      "examples": [
+        -99,
+        -1,
+        1,
+        2,
+        3,
+        4
+      ],
+      "$comment": "extensible code list; known values in examples",
+      "x-enumLabels": {
+        "en": {
+          "-99": "Not valid due to station maintenance or calibration",
+          "-1": "Not valid",
+          "1": "Valid",
+          "2": "Valid, but below detection limit",
+          "3": "Valid, but below detection limit and number replaced by 0.5*detection limit",
+          "4": "Valid (Ozone only) using CCQM.O3.2019"
+        }
+      },
+      "x-vocabulary": {
+        "uri": "http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity",
+        "name": "AQD - Observation Validity",
+        "publisher": "European Environment Agency (Eionet Data Dictionary)",
+        "retrieved": "2026-11-23",
+        "licence": "unknown (to be checked on the register)"
+      },
+      "x-enumUris": {
+        "-99": "http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity/-99",
+        "-1": "http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity/-1",
+        "1": "http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity/1",
+        "2": "http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity/2",
+        "3": "http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity/3",
+        "4": "http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity/4"
+      }
+    },
+    "ObservationVerification": {
+      "description": "Verification status of an observation (EEA AQD observation verification).",
+      "type": "integer",
+      "examples": [
+        1,
+        2,
+        3
+      ],
+      "$comment": "extensible code list; known values in examples",
+      "x-enumLabels": {
+        "en": {
+          "1": "Verified",
+          "2": "Preliminary verified",
+          "3": "Not verified"
+        }
+      },
+      "x-vocabulary": {
+        "uri": "http://dd.eionet.europa.eu/vocabulary/aq/observationverification",
+        "name": "AQD - Observation Verification",
+        "publisher": "European Environment Agency (Eionet Data Dictionary)",
+        "retrieved": "2026-11-23",
+        "licence": "unknown (to be checked on the register)"
+      },
+      "x-enumUris": {
+        "1": "http://dd.eionet.europa.eu/vocabulary/aq/observationverification/1",
+        "2": "http://dd.eionet.europa.eu/vocabulary/aq/observationverification/2",
+        "3": "http://dd.eionet.europa.eu/vocabulary/aq/observationverification/3"
+      }
+    },
+    "Position": {
+      "description": "Geographic position of a station. CRS is not stated in S1; WGS 84 (EPSG:4326) decimal degrees assumed (A-005). Kept as lat/lon/altitude rather than a geometry for wire compatibility (D-002).",
+      "type": "object",
+      "properties": {
+        "lat": {
+          "description": "Latitude in decimal degrees (assumed WGS 84).",
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "lon": {
+          "description": "Longitude in decimal degrees (assumed WGS 84).",
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "altitude": {
+          "description": "Altitude of the station. Unit and vertical datum not stated in S1; metres above mean sea level assumed (A-005). S1 allows both omission and xsi:nil — meaning of the difference unclear (Q-004).",
+          "anyOf": [
+            {
+              "type": "number",
+              "$comment": "unit: m"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "lat",
+        "lon"
+      ],
+      "additionalProperties": false
+    },
+    "ObservationCollection": {
+      "description": "One delivery from a partner: a set of stations with their sampling points and observations. Root element of the exchange document.",
+      "type": "object",
+      "properties": {
+        "stations": {
+          "description": "Stations contained in a delivery.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Station"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "stations"
+      ],
+      "unevaluatedProperties": false
+    },
+    "Station": {
+      "description": "Air quality monitoring station at a fixed location.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Document-local identifier (xs:ID) of the station element. Only unique within one delivery and must not start with a digit; not to be used as a persistent key (Q-001).",
+          "type": "string"
+        },
+        "stationCode": {
+          "description": "Code of the station, assumed stable across deliveries and used as the persistent identifier (A-002). Possibly the EEA/national station code (e.g. \"DEBE010\") — to confirm.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the station.",
+          "type": "string"
+        },
+        "operator": {
+          "description": "Organisation operating the station (free text in S1).",
+          "type": "string"
+        },
+        "position": {
+          "description": "Location of the station.",
+          "$ref": "#/$defs/Position"
+        },
+        "stationType": {
+          "description": "Station classification by dominant emission source.",
+          "$ref": "#/$defs/StationKind"
+        },
+        "samplingPoints": {
+          "description": "Sampling points operated at a station.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SamplingPoint"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "stationCode",
+        "name",
+        "position",
+        "stationType",
+        "samplingPoints"
+      ],
+      "unevaluatedProperties": false
+    },
+    "SamplingPoint": {
+      "description": "Measurement configuration at a station for one pollutant, delivering one time series of observations in one unit.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Identifier (xs:ID) of the sampling point. S1 only makes it unique within one document; whether it is stable across deliveries is unknown (Q-001). Used as identifier provisionally.",
+          "type": "string"
+        },
+        "pollutant": {
+          "description": "Pollutant measured, as the notation code of the EEA pollutant vocabulary (e.g. NO2).",
+          "$ref": "#/$defs/Pollutant"
+        },
+        "unit": {
+          "description": "Unit of all observation values of this sampling point.",
+          "$ref": "#/$defs/ConcentrationUnit"
+        },
+        "observations": {
+          "description": "Time series of observations of a sampling point.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Observation"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "pollutant",
+        "unit"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-002: Within one sampling point, at most one observation per interval begin (no duplicates or overlapping intervals in one delivery)."
+    },
+    "Observation": {
+      "description": "One aggregated measurement result of a sampling point for a time interval (normally one hour).",
+      "type": "object",
+      "properties": {
+        "begin": {
+          "description": "Start of the averaging interval (inclusive). Must carry a UTC offset (C-003).",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "description": "End of the averaging interval (exclusive assumed, A-006).",
+          "type": "string",
+          "format": "date-time"
+        },
+        "value": {
+          "description": "Measured value in the unit of the sampling point. xsi:nil when no value is available; the reason should then be expressed by the validity flag (C-004).",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validity": {
+          "description": "Validity flag (EEA AQD observation validity code).",
+          "$ref": "#/$defs/ObservationValidity"
+        },
+        "verification": {
+          "description": "Verification status (EEA AQD observation verification code).",
+          "$ref": "#/$defs/ObservationVerification"
+        }
+      },
+      "required": [
+        "begin",
+        "end",
+        "value",
+        "validity",
+        "verification"
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "C-001: The end of the interval must be after its begin.; C-003: begin and end must carry an explicit UTC offset (e.g. 2026-11-23T10:00:00+01:00). S1's xs:dateTime also accepts local times without offset; such values are ambiguous.; C-004: If value is nil, validity must be a \"not valid\" code (-1 or -99); if validity is 1–4, value must not be nil.; C-005: Interval length is one hour for hourly data (end - begin = PT1H)."
+    }
+  }
+}

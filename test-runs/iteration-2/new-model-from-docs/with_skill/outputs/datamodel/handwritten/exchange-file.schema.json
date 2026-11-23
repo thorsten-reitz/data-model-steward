@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/models/urban-tree-cadastre/0.1.0/exchange-file.schema.json",
+  "title": "Urban Tree Cadastre - monthly exchange file to the regional environmental agency",
+  "description": "Hand-written envelope (decision D-009). Object structures come from the generated schema.json of the same model version; do not redefine them here. Staff member names are never included (D-011).",
+  "$comment": "DRAFT 0.1.0. Open: snapshot vs. delta (Q-006), CRS (Q-008, D-014).",
+  "type": "object",
+  "properties": {
+    "modelVersion": {
+      "description": "Version of the UrbanTreeCadastre model the file conforms to.",
+      "const": "0.1.0"
+    },
+    "periodStart": {"description": "First day of the reporting month.", "type": "string", "format": "date"},
+    "periodEnd": {"description": "Last day of the reporting month.", "type": "string", "format": "date"},
+    "createdAt": {"description": "When the file was produced.", "type": "string", "format": "date-time"},
+    "producer": {"description": "Producing organisation (parks department).", "type": "string", "maxLength": 200},
+    "crs": {
+      "description": "Coordinate reference system of all geometries in the file (D-014).",
+      "const": "EPSG:25832"
+    },
+    "species": {"type": "array", "items": {"$ref": "schema.json#/$defs/Species"}},
+    "sites": {"type": "array", "items": {"$ref": "schema.json#/$defs/Site"}},
+    "contractors": {"type": "array", "items": {"$ref": "schema.json#/$defs/Contractor"}},
+    "trees": {"type": "array", "items": {"$ref": "schema.json#/$defs/Tree"}},
+    "inspections": {"type": "array", "items": {"$ref": "schema.json#/$defs/Inspection"}},
+    "measures": {"type": "array", "items": {"$ref": "schema.json#/$defs/Measure"}}
+  },
+  "required": ["modelVersion", "periodStart", "periodEnd", "createdAt", "producer", "crs", "species", "sites", "contractors", "trees", "inspections", "measures"],
+  "additionalProperties": false
+}

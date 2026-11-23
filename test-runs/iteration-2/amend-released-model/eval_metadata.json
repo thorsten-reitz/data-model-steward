@@ -1,0 +1,20 @@
+{
+  "eval_name": "amend-released-model",
+  "prompt": "The permits team sent change request CR-7 (attached). Please work it into our data model in datamodel/ \u2014 it's released as 1.0.0 and three partner systems use the JSON exchange schema, so I really don't want to break them unless there's no other way. I won't be around to answer questions; make the call yourself where it's reasonable, and tell me what you decided and what I still need to decide. Update everything that needs updating, including the exports.",
+  "assertions": [
+    "datamodel/releases/1.0.0/model.yaml is unchanged",
+    "The rename of reference to fileNumber does not break 1.0.0 consumers: either fileNumber is added and reference deprecated, or reference is kept (relabelled or aliased as file number) and the rename is deferred to a major version and raised with the user",
+    "keywords is kept and marked deprecated rather than removed",
+    "The applicant is added as optional (lower bound 0), or making it mandatory is explicitly presented as a breaking decision for the user; a rule that only new permits need an applicant is allowed",
+    "The new status expired is handled without silently breaking strict 1.0.0 consumers: either it is derived/calculated with the reason given, or it is added to PermitStatus with the partner impact explicitly flagged",
+    "validUntil is not silently retyped from date to dateTime; either a new attribute is added or the retyping is escalated as a breaking decision",
+    "PermitCondition gets an optional category with the values environmental, safety, other",
+    "The new version is 1.1.0 with a documented way to keep 1.0.0 partners working (e.g. a projection without the new fields), or 2.0.0 with the breaking reason stated",
+    "CHANGELOG.md has an entry for the new version that states its compatibility",
+    "The change request is registered as a new source in sources.md",
+    "The new JSON Schema export is generated from the canonical model by a deterministic tool rather than written by hand, and exports/1.0.0 is unchanged",
+    "The final response lists the decisions the user still needs to make",
+    "The CHANGELOG or compatibility notes warn that partners validating strictly against the 1.0.0 schema will reject documents containing the new optional fields or values",
+    "Applicant data is recognised as personal data (data classification raised or a privacy question raised)"
+  ]
+}

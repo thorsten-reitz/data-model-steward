@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aq:ObservationCollection xmlns:aq="http://example.org/airquality/2.1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <aq:station id="ST_DEBE010">
+    <aq:stationCode>DEBE010</aq:stationCode>
+    <aq:name>Example Street</aq:name>
+    <aq:operator>Example Environment Agency</aq:operator>
+    <aq:position>
+      <aq:lat>52.5200</aq:lat>
+      <aq:lon>13.4050</aq:lon>
+      <aq:altitude>34</aq:altitude>
+    </aq:position>
+    <aq:stationType>traffic</aq:stationType>
+    <aq:sampling id="SPO_DEBE010_NO2">
+      <aq:pollutant>NO2</aq:pollutant>
+      <aq:unit>ug.m-3</aq:unit>
+      <aq:observation>
+        <aq:begin>2026-11-22T00:00:00+01:00</aq:begin>
+        <aq:end>2026-11-22T01:00:00+01:00</aq:end>
+        <aq:value>41.3</aq:value>
+        <aq:validity>1</aq:validity>
+        <aq:verification>3</aq:verification>
+      </aq:observation>
+      <aq:observation>
+        <aq:begin>2026-11-22T01:00:00+01:00</aq:begin>
+        <aq:end>2026-11-22T02:00:00+01:00</aq:end>
+        <aq:value xsi:nil="true"/>
+        <aq:validity>-1</aq:validity>
+        <aq:verification>3</aq:verification>
+      </aq:observation>
+    </aq:sampling>
+    <aq:sampling id="SPO_DEBE010_PM10">
+      <aq:pollutant>PM10</aq:pollutant>
+      <aq:unit>ug.m-3</aq:unit>
+    </aq:sampling>
+  </aq:station>
+  <aq:station id="ST_DEBE032">
+    <aq:stationCode>DEBE032</aq:stationCode>
+    <aq:name>Example Forest</aq:name>
+    <aq:position>
+      <aq:lat>52.4730</aq:lat>
+      <aq:lon>13.2250</aq:lon>
+      <aq:altitude xsi:nil="true"/>
+    </aq:position>
+    <aq:stationType>background</aq:stationType>
+    <aq:sampling id="SPO_DEBE032_O3">
+      <aq:pollutant>O3</aq:pollutant>
+      <aq:unit>ug.m-3</aq:unit>
+      <aq:observation>
+        <aq:begin>2026-11-22T00:00:00Z</aq:begin>
+        <aq:end>2026-11-22T01:00:00Z</aq:end>
+        <aq:value>12.0</aq:value>
+        <aq:validity>1</aq:validity>
+        <aq:verification>3</aq:verification>
+      </aq:observation>
+    </aq:sampling>
+  </aq:station>
+</aq:ObservationCollection>

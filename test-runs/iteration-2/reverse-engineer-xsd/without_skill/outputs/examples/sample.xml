@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Illustrative 2.1 delivery: 2 stations, 3 sampling points, a few hours. -->
+<aq:ObservationCollection xmlns:aq="http://example.org/airquality/2.1"
+                          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <aq:station id="ST_DEBE065">
+    <aq:stationCode>DEBE065</aq:stationCode>
+    <aq:name>Berlin Frankfurter Allee</aq:name>
+    <aq:operator>Senatsverwaltung Berlin</aq:operator>
+    <aq:position>
+      <aq:lat>52.514072</aq:lat>
+      <aq:lon>13.469931</aq:lon>
+      <aq:altitude>38</aq:altitude>
+    </aq:position>
+    <aq:stationType>traffic</aq:stationType>
+    <aq:sampling id="SP_DEBE065_NO2">
+      <aq:pollutant>NO2</aq:pollutant>
+      <aq:unit>ug.m-3</aq:unit>
+      <aq:observation>
+        <aq:begin>2026-11-22T00:00:00+01:00</aq:begin>
+        <aq:end>2026-11-22T01:00:00+01:00</aq:end>
+        <aq:value>41.3</aq:value>
+        <aq:validity>1</aq:validity>
+        <aq:verification>3</aq:verification>
+      </aq:observation>
+      <aq:observation>
+        <aq:begin>2026-11-22T01:00:00+01:00</aq:begin>
+        <aq:end>2026-11-22T02:00:00+01:00</aq:end>
+        <aq:value xsi:nil="true"/>
+        <aq:validity>-99</aq:validity>
+        <aq:verification>3</aq:verification>
+      </aq:observation>
+    </aq:sampling>
+    <aq:sampling id="SP_DEBE065_PM10">
+      <aq:pollutant>PM10</aq:pollutant>
+      <aq:unit>ug.m-3</aq:unit>
+      <aq:observation>
+        <aq:begin>2026-11-22T00:00:00+01:00</aq:begin>
+        <aq:end>2026-11-22T01:00:00+01:00</aq:end>
+        <aq:value>18.0</aq:value>
+        <aq:validity>1</aq:validity>
+        <aq:verification>3</aq:verification>
+      </aq:observation>
+    </aq:sampling>
+  </aq:station>
+  <aq:station id="ST_DEBB021">
+    <aq:stationCode>DEBB021</aq:stationCode>
+    <aq:name>Potsdam-Zentrum</aq:name>
+    <aq:position>
+      <aq:lat>52.398</aq:lat>
+      <aq:lon>13.0615</aq:lon>
+      <aq:altitude xsi:nil="true"/>
+    </aq:position>
+    <aq:stationType>background</aq:stationType>
+    <aq:sampling id="SP_DEBB021_O3">
+      <aq:pollutant>O3</aq:pollutant>
+      <aq:unit>ug.m-3</aq:unit>
+    </aq:sampling>
+  </aq:station>
+</aq:ObservationCollection>

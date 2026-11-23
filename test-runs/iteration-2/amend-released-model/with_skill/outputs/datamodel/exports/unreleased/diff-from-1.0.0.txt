@@ -1,0 +1,20 @@
+Model diff 1.0.0 → 1.0.0: 15 change(s); consumers: strict
+
+  [CONSUMERS ] Permit.applicant: optional attribute added — breaks consumers that validate strictly against the released schema
+  [CONSUMERS ] Permit.validUntilDateTime: optional attribute added — breaks consumers that validate strictly against the released schema
+  [CONSUMERS ] PermitCondition.category: optional attribute added — breaks consumers that validate strictly against the released schema
+  [compatible] Applicant: datatype added
+  [compatible] ConditionCategory: enumeration added
+  [compatible] Permit.keywords: deprecated
+  [compatible] Permit.validUntil: deprecated
+  [compatible] constraint C-002: constraint added (not enforced or new data only)
+  [compatible] constraint C-003: constraint added (not enforced or new data only)
+  [compatible] constraint C-004: constraint added (not enforced or new data only)
+  [compatible] constraint C-005: constraint added (not enforced or new data only)
+  [doc       ] Permit: non-functional requirements changed (check physical design)
+  [doc       ] Permit.reference: label changed
+  [doc       ] Permit.reference: description changed
+  [doc       ] Permit.validUntil: description changed
+
+Recommended version: 2.0.0  — model.version 1.0.0 is too low
+Some additions break consumers that validate strictly against the released schema. Options: serve them a projection without the new elements, agree on open content, or release a major version.

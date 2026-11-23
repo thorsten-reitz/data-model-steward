@@ -1,0 +1,595 @@
+{
+  "metadata": {
+    "skill_name": "data-model-steward",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-11-23T14:19:56Z",
+    "evals_run": [
+      "amend-released-model",
+      "new-model-from-docs",
+      "reverse-engineer-xsd"
+    ],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": "amend-released-model",
+      "eval_name": "amend-released-model",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 14,
+        "failed": 0,
+        "total": 14,
+        "time_seconds": 213.1,
+        "tokens": 101858,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "datamodel/releases/1.0.0/model.yaml is unchanged",
+          "passed": true,
+          "evidence": "Byte-compared with original eval input (cmp): with_skill/outputs/datamodel/releases/1.0.0/model.yaml identical."
+        },
+        {
+          "text": "The rename of reference to fileNumber does not break 1.0.0 consumers: either fileNumber is added and reference deprecated, or reference is kept (relabelled or aliased as file number) and the rename is deferred to a major version and raised with the user",
+          "passed": true,
+          "evidence": "model.yaml keeps `reference` with `label: File number`, notes 'the wire rename is planned for the next major version (D-005)'; response item 1 and decision item 1 (2.0.0 option 'the real fileNumber rename') raise it with the user."
+        },
+        {
+          "text": "keywords is kept and marked deprecated rather than removed",
+          "passed": true,
+          "evidence": "model.yaml keywords: `deprecated: {since: 1.1.0, reason: \"No longer used (CR-7 item 6)... Removal planned for the next major version.\"}`; still present in exports/unreleased/schema.json with \"deprecated\": true."
+        },
+        {
+          "text": "The applicant is added as optional (lower bound 0), or making it mandatory is explicitly presented as a breaking decision for the user; a rule that only new permits need an applicant is allowed",
+          "passed": true,
+          "evidence": "model.yaml `applicant: {type: Applicant, multiplicity: \"0..1\"}` plus C-002 'Every permit created from version 1.1.0 on must have an applicant' with `scope: new`."
+        },
+        {
+          "text": "The new status expired is handled without silently breaking strict 1.0.0 consumers: either it is derived/calculated with the reason given, or it is added to PermitStatus with the partner impact explicitly flagged",
+          "passed": true,
+          "evidence": "Derived, not stored: PermitStatus unchanged; C-005 'Derivation rule (not a stored value)'; response gives reasons: 'Adding a value to the closed status list breaks strict partners' plus time-driven change would need a batch job and history noise."
+        },
+        {
+          "text": "validUntil is not silently retyped from date to dateTime; either a new attribute is added or the retyping is escalated as a breaking decision",
+          "passed": true,
+          "evidence": "validUntil stays `type: date`, deprecated with replacedBy validUntilDateTime; new attribute `validUntilDateTime: {type: dateTime, multiplicity: 0..1}`."
+        },
+        {
+          "text": "PermitCondition gets an optional category with the values environmental, safety, other",
+          "passed": true,
+          "evidence": "New enumeration ConditionCategory (environmental, safety, other, extensible) and `PermitCondition.category` multiplicity \"0..1\"; in exports/unreleased/schema.json PermitCondition required is only ['text']."
+        },
+        {
+          "text": "The new version is 1.1.0 with a documented way to keep 1.0.0 partners working (e.g. a projection without the new fields), or 2.0.0 with the breaking reason stated",
+          "passed": true,
+          "evidence": "Left as unreleased draft (model.version still 1.0.0, status draft; no releases/1.1.0). Accepted per grading instruction because response clearly proposes 1.1.0 with a projection: 'Recommended: the exchange interface sends each partner documents in the version it implemented, leaving out the three new fields until that partner upgrades. That makes this a 1.1.0', with 2.0.0 as alternative and reasons. Note: dmtool diff recommends 2.0.0 and the response flags that `release` will refuse 1.1.0 without a tool fix or logged override."
+        },
+        {
+          "text": "CHANGELOG.md has an entry for the new version that states its compatibility",
+          "passed": true,
+          "evidence": "CHANGELOG.md 'Unreleased (planned 1.1.0; 2.0.0 if the projection is not possible, see D-009 / Q-001)' with a '### Compatibility' section covering existing data, strict partners and application changes."
+        },
+        {
+          "text": "The change request is registered as a new source in sources.md",
+          "passed": true,
+          "evidence": "sources.md row 'S2 | Change request CR-7 (permits team) | ../change-request-CR7.md | 2026-11-15 | change request ...'."
+        },
+        {
+          "text": "The new JSON Schema export is generated from the canonical model by a deterministic tool rather than written by hand, and exports/1.0.0 is unchanged",
+          "passed": true,
+          "evidence": "exports/unreleased/ produced by dmtool: schema.sql header '-- Generated by dmtool from PermitRegistry 1.0.0 (comments: en). Do not edit; regenerate.', migrate-from-1.0.0.sql 'generated by dmtool migrate from the two models', diff-from-1.0.0.txt is dmtool diff output; schema.json copies model descriptions verbatim and its $id mirrors model.version, consistent with mechanical generation (no hand-edited extras found). exports/1.0.0/schema.json and schema.sql byte-identical to originals. Caveat: because the draft still says version 1.0.0, the preview schema.json $id is https://example.org/models/permit-registry/1.0.0/schema.json, colliding with the released 1.0.0 schema's $id (and the diff header reads '1.0.0 -> 1.0.0')."
+        },
+        {
+          "text": "The final response lists the decisions the user still needs to make",
+          "passed": true,
+          "evidence": "response.md '## What you need to decide' lists 4 items: projection vs 2.0.0 (Q-001), time zone (Q-002), personal-data retention/partner access (Q-004), applicant identity and mandatory category (Q-003, Q-005)."
+        },
+        {
+          "text": "The CHANGELOG or compatibility notes warn that partners validating strictly against the 1.0.0 schema will reject documents containing the new optional fields or values",
+          "passed": true,
+          "evidence": "CHANGELOG Compatibility: '`applicant`, `validUntilDateTime` and `conditions[].category` are new optional properties that a 1.0.0 validator rejects. Partners still on 1.0.0 must get a projection that omits them'."
+        },
+        {
+          "text": "Applicant data is recognised as personal data (data classification raised or a privacy question raised)",
+          "passed": true,
+          "evidence": "model.yaml Permit nfr `classification: personal   # since 1.1.0: applicant name/address are personal data (Q-004)`; open-questions.md Q-004 'The name and address of a natural person are personal data. What is the retention period?'."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "new-model-from-docs",
+      "eval_name": "new-model-from-docs",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 14,
+        "failed": 0,
+        "total": 14,
+        "time_seconds": 375.1,
+        "tokens": 155021,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "There is exactly one implementation-neutral source of truth for the model (no database-specific types in it), and the PostgreSQL DDL and JSON Schema are generated from it rather than written by hand in parallel",
+          "passed": true,
+          "evidence": "datamodel/model.yaml is the canonical model with neutral types only (uuid, geometry, decimal, date, enumerations). exports/draft/schema.sql header: 'Generated by dmtool from UrbanTreeCadastre 0.1.0 ... Do not edit; regenerate.' Grader re-ran dmtool export (postgres, jsonschema) on model.yaml: output is byte-identical to exports/draft/schema.sql and schema.json. Hand-written parts (exchange envelope, tuning.sql) reference the generated output rather than redefining structures (D-009, D-013)."
+        },
+        {
+          "text": "Assumptions and/or open questions are written to a file in datamodel/",
+          "passed": true,
+          "evidence": "datamodel/open-questions.md lists Q-001..Q-011 and A-001..A-016, each 'confirmed: no'; decisions.md marks all 14 decisions 'without user confirmation'."
+        },
+        {
+          "text": "Species is modelled as a managed, extensible code list or reference table rather than free text",
+          "passed": true,
+          "evidence": "model.yaml class Species (id, botanicalName unique, commonName, gbifTaxonKey, active); association TreeSpecies to Species multiplicity 1; generated DDL has species table with FK. D-004 explains why it is a class (~900 entries, extended by arborists)."
+        },
+        {
+          "text": "Inspection records are protected from deletion and have an audit trail (who changed what, when)",
+          "passed": true,
+          "evidence": "Inspection has history {mode: audit, deletion: logical}; generated schema.sql creates inspection_history; tuning.sql: 'CREATE TRIGGER inspection_no_delete BEFORE DELETE ON inspection ... forbid_delete()' and a write_history() trigger recording operation, recorded_by (app.user/current_user) and row_data for inspection and other entity tables. Defect child rows are not history-triggered; this is acknowledged in a NOTE."
+        },
+        {
+          "text": "Corrections of a tree's location are historised so the previous location and the correction time can be retrieved",
+          "passed": true,
+          "evidence": "Class TreeLocationCorrection (correctedAt, previousLocation Point EPSG:25832, reason, correctedBy) as composition of Tree; generated table tree_location_correction with previous_location geometry(Point,25832) and corrected_at. D-008. Note: no trigger fills it automatically on UPDATE of tree.location (relies on the application), but the structure supports retrieval."
+        },
+        {
+          "text": "Felled trees are kept with felling date and reason, and a felled tree can be linked to one or more replacement trees",
+          "passed": true,
+          "evidence": "Tree.status (standing/felled), fellingDate, fellingReason (extensible FellingReason list); association TreeReplacement replacementTrees 0..* / replacedTree 0..1, generated as tree.replaced_tree_id FK. C-001 CHECK in tuning.sql ties felling fields to status. Example file shows a felled tree with a replacement."
+        },
+        {
+          "text": "The tree location is a PostGIS Point geometry with SRID 25832 and has a spatial (GiST) index, in the generated DDL or in a separate tuning script",
+          "passed": true,
+          "evidence": "Generated schema.sql: 'location geometry(Point,25832) NOT NULL'; tuning.sql: 'CREATE INDEX tree_location_gix ON tree USING gist (location) WHERE deleted_at IS NULL;'."
+        },
+        {
+          "text": "Defects are modelled as multi-valued entries each with a severity (low/medium/high), not as comma-separated text",
+          "passed": true,
+          "evidence": "Class InspectionDefect (defectType, severity: DefectSeverity low/medium/high) composed 0..* in Inspection; generated table inspection_defect with severity defect_severity ENUM('low','medium','high') NOT NULL and FK to the defect_type lookup."
+        },
+        {
+          "text": "Expected volumes (trees, inspections per year, measures per year) are recorded per object type in the model, not only in prose",
+          "passed": true,
+          "evidence": "model.yaml nfr per class: Tree 'volume: 180000, growth: 3000/year'; Inspection 'growth: 200000/year', retention 30 years; Measure 'growth: 25000/year'; also Species 900, Site 5000, StaffMember 50."
+        },
+        {
+          "text": "Inspector names are flagged as personal data and excluded from the open data export",
+          "passed": true,
+          "evidence": "StaffMember nfr classification: personal; name description 'Full name. Personal data - must not appear in open data or the exchange file.' tuning.sql open_data_tree view selects only id, tree_number, botanical_name, gbif_taxon_key, planting_year, location and latest vitality, with no staff reference."
+        },
+        {
+          "text": "The exchange file for the regional agency carries no inspector names (at most an internal or pseudonymous id)",
+          "passed": true,
+          "evidence": "Exchange envelope has no staff array (D-009/D-011); Inspection in generated schema.json has only 'inspector' as a UUID reference; the schema is closed. Grader test: adding inspectorName to an inspection is rejected."
+        },
+        {
+          "text": "The generated JSON Schema is a valid JSON Schema, and a realistic example exchange file validates against it",
+          "passed": true,
+          "evidence": "Grader validated schema.json and exchange-file.schema.json with Draft202012Validator.check_schema (OK) and validated handwritten/example-exchange-file.json against the envelope (with local GeoJSON Point/Geometry stubs for the remote $refs): 0 errors. Bad severity and malformed point are rejected. Example is realistic (UTM32 coordinates, felled tree with replacement, defects, done measure)."
+        },
+        {
+          "text": "Each model element can be traced to its source (source IDs on the elements or a traceability table to requirements.md / legacy_trees.sql)",
+          "passed": true,
+          "evidence": "Elements carry 'sources: [S1, S2]' etc. and decision refs; sources.md defines S1=requirements.md, S2=legacy_trees.sql, S3=GBIF, S4=Roloff; handwritten/legacy-mapping.md maps legacy columns. Some attributes/constraints lack their own sources but inherit class-level sources."
+        },
+        {
+          "text": "For tree species, the run checks for a standardised taxonomy or vocabulary (e.g. GBIF Backbone Taxonomy, World Flora Online) and either recommends reusing it, with a verifiable source and a fit assessment, or explains why the city's own species list is kept; it does not adopt a vocabulary silently",
+          "passed": true,
+          "evidence": "sources.md S3: GBIF Backbone Taxonomy, 'Tilia cordata -> taxon key 3152047, verified', URL https://api.gbif.org/v1/species/match, retrieved 2026-11-23; candidate table verdict: 'Keep the city's own list (cultivars...) but link each entry via optional gbifTaxonKey - D-004. Not adopted until you confirm.' D-004 gives the fit assessment; WFO named as an unchecked alternative. Field is marked status: proposed."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "reverse-engineer-xsd",
+      "eval_name": "reverse-engineer-xsd",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 13,
+        "failed": 0,
+        "total": 13,
+        "time_seconds": 460.9,
+        "tokens": 133590,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "A canonical model file exists separate from the generated JSON Schema",
+          "passed": true,
+          "evidence": "with_skill/outputs/datamodel/model.yaml is the canonical model; the JSON Schema is generated separately at datamodel/exports/draft/schema.json (response.md: 'Both schemas are now generated from that one file')."
+        },
+        {
+          "text": "Position is modelled as a value type without its own identity (a datatype, or explicitly marked as an embedded value without a key)",
+          "passed": true,
+          "evidence": "model.yaml places Position under the top-level `datatypes:` section (not `classes:`), with attributes lat/lon/altitude and no identifier; response.md table: 'Position | value type'."
+        },
+        {
+          "text": "Pollutant is modelled as an extensible or externally governed code list, not a closed enum or an undocumented plain string",
+          "passed": true,
+          "evidence": "model.yaml `enumerations: Pollutant: extensible: true` with a `vocabulary:` block (uri http://dd.eionet.europa.eu/vocabulary/aq/pollutant, retrieved 2026-11-23, subset: true) and six coded values with URIs."
+        },
+        {
+          "text": "The station kind is modelled as a closed enumeration with traffic, industrial and background",
+          "passed": true,
+          "evidence": "model.yaml `StationKind: extensible: false` with values traffic, industrial, background; schema.json has enum [traffic, industrial, background]; generated XSD keeps xs:enumeration."
+        },
+        {
+          "text": "The meaning of the integer validity and verification codes is flagged as ambiguous",
+          "passed": true,
+          "evidence": "response.md item 4: '`validity` and `verification` are bare `xs:int` with no named code list. They look like the EEA AQD flags, but the XSD doesn't say so (A-004).'"
+        },
+        {
+          "text": "The missing coordinate reference system for lat/lon is flagged",
+          "passed": true,
+          "evidence": "response.md item 7: 'Position has no coordinate reference system. Lat/lon have no stated CRS (I assumed WGS 84)'. model.yaml Position: 'CRS is not stated in S1; WGS 84 (EPSG:4326) decimal degrees assumed (A-005)'."
+        },
+        {
+          "text": "Identifier issues are flagged (xs:ID values only unique within one document, and/or overlap of id and stationCode)",
+          "passed": true,
+          "evidence": "response.md item 1: '`@id` is `xs:ID`: it is unique only within one document ... `stationCode` has no uniqueness rule.' Model: Station identifier {attribute: stationCode}; id described as 'Only unique within one delivery'."
+        },
+        {
+          "text": "The observation volume (roughly 21 million per year: 400 x 6 x 24 x 365) is recorded in the canonical model, not only in prose",
+          "passed": true,
+          "evidence": "model.yaml Observation `nfr: volume: 21000000/year`, `growth: \"~57,600 per day (400 stations x 6 pollutants x 24 hours), ~21 M per year\"`, plus accessPaths."
+        },
+        {
+          "text": "The high observation volume leads to an API design note (e.g. observations as a separate, paginated resource rather than nested in station documents)",
+          "passed": true,
+          "evidence": "response.md: 'That doesn't change the logical model, but the API should: page time series, with a query by sampling point (or station + pollutant) and time range; store observations partitioned by time; upsert on (samplingPoint, begin).' Model nfr notes: 'API must page time series'. Weaker than without_skill: it does not explicitly say to split observations out of nested station documents for reads."
+        },
+        {
+          "text": "The generated JSON Schema is a valid JSON Schema and allows null for the observation value",
+          "passed": true,
+          "evidence": "Ran jsonschema Draft202012Validator.check_schema on exports/draft/schema.json: OK. Instance with observation value null: 0 errors (value is anyOf number/null)."
+        },
+        {
+          "text": "The JSON Schema keeps the observation value required but nullable, matching the XSD where the element is mandatory but nillable",
+          "passed": true,
+          "evidence": "schema.json Observation required: [begin, end, value, validity, verification], value anyOf number/null. Tested: value=null valid; value key removed gives \"'value' is a required property\"."
+        },
+        {
+          "text": "An XSD generated from the canonical model accepts the same documents as the original 2.1 XSD: a sample delivery valid against observations.xsd also validates against the generated XSD (checked with lxml)",
+          "passed": true,
+          "evidence": "lxml (python -I): examples/sample-delivery.xml validates against the original observations.xsd (True) and the generated exports/draft/schema.xsd (True); a self-written minimal doc (no altitude, nil value, validity 0, verification 7, offset-less dateTime, pollutant 'weird') is also valid in both. CAVEAT: the generated XSD adds lat/lon minInclusive/maxInclusive, so a doc with lat=95 passes the original but fails the generated XSD (verified). This is disclosed in response.md (D-002: 'a document with lat = 95 passed 2.1 but fails the generated XSD'). 'Accepts the same documents' is therefore not strictly true; passed on the specified sample-delivery check."
+        },
+        {
+          "text": "The pollutant code list is linked to a named standard vocabulary (e.g. the EEA/Eionet air quality pollutant vocabulary) with its register URI and a snapshot date or version, or reusing such a vocabulary is recommended to the user with the reason",
+          "passed": true,
+          "evidence": "model.yaml Pollutant `vocabulary: uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant, name: AQD - Air Quality Pollutants, publisher: European Environment Agency (Eionet Data Dictionary), version: null, retrieved: 2026-11-23`, with per-value URIs (4 marked unverified). Propagated as x-vocabulary in schema.json."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "amend-released-model",
+      "eval_name": "amend-released-model",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.86,
+        "passed": 12,
+        "failed": 2,
+        "total": 14,
+        "time_seconds": 257.1,
+        "tokens": 94551,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "datamodel/releases/1.0.0/model.yaml is unchanged",
+          "passed": true,
+          "evidence": "Byte-compared with original eval input (cmp): without_skill/outputs/datamodel/releases/1.0.0/model.yaml identical."
+        },
+        {
+          "text": "The rename of reference to fileNumber does not break 1.0.0 consumers: either fileNumber is added and reference deprecated, or reference is kept (relabelled or aliased as file number) and the rename is deferred to a major version and raised with the user",
+          "passed": true,
+          "evidence": "model.yaml keeps `reference` with `label: File number`, `businessName: fileNumber    # planned technical name in 2.0.0, see D-003`; response decision 2 raises the 2.0.0 rename with the user."
+        },
+        {
+          "text": "keywords is kept and marked deprecated rather than removed",
+          "passed": true,
+          "evidence": "model.yaml keywords `deprecated: true`, `deprecatedSince: 1.1.0`, `removalPlanned: 2.0.0`; exports/1.1.0/schema.json keywords has \"deprecated\": true."
+        },
+        {
+          "text": "The applicant is added as optional (lower bound 0), or making it mandatory is explicitly presented as a breaking decision for the user; a rule that only new permits need an applicant is allowed",
+          "passed": true,
+          "evidence": "model.yaml `applicant: type: Applicant, multiplicity: \"0..1\"` plus C-002 'Every permit created from the 1.1.0 go-live onwards must have an applicant'."
+        },
+        {
+          "text": "The new status expired is handled without silently breaking strict 1.0.0 consumers: either it is derived/calculated with the reason given, or it is added to PermitStatus with the partner impact explicitly flagged",
+          "passed": true,
+          "evidence": "PermitStatus unchanged; DerivedPermitStatus (persistence view only) and DB view permit_effective_status; response: 'Adding a value to the closed, non-extensible status enum would break partners. A stored status would also need a nightly job' (D-005)."
+        },
+        {
+          "text": "validUntil is not silently retyped from date to dateTime; either a new attribute is added or the retyping is escalated as a breaking decision",
+          "passed": true,
+          "evidence": "validUntil stays `type: date`; new `validUntilTime: {type: time, multiplicity: 0..1}` (D-006); response: 'Changing validUntil from a date to a date-time would break every partner and all existing values'."
+        },
+        {
+          "text": "PermitCondition gets an optional category with the values environmental, safety, other",
+          "passed": true,
+          "evidence": "ConditionCategory enum (environmental, safety, other) and `PermitCondition.category` multiplicity \"0..1\" (mandatory for new conditions via C-004 only)."
+        },
+        {
+          "text": "The new version is 1.1.0 with a documented way to keep 1.0.0 partners working (e.g. a projection without the new fields), or 2.0.0 with the breaking reason stated",
+          "passed": true,
+          "evidence": "model.yaml `version: 1.1.0`, status draft (no releases/1.1.0); CHANGELOG/D-008: 'the new properties must only be sent to partners that have adopted 1.1.0'; response: 'until a partner has switched to 1.1.0, we must leave out those fields when sending to that partner. Without them, a 1.1.0 document is a valid 1.0.0 document'."
+        },
+        {
+          "text": "CHANGELOG.md has an entry for the new version that states its compatibility",
+          "passed": true,
+          "evidence": "CHANGELOG '## 1.1.0 - draft (not yet released) - CR-7' / 'Minor, backward-compatible release' followed by a 'Compatibility:' paragraph."
+        },
+        {
+          "text": "The change request is registered as a new source in sources.md",
+          "passed": true,
+          "evidence": "sources.md row 'S2 | Change request CR-7 (permits team) | change-request-CR7.md | 2026-11-15 | change request ...'."
+        },
+        {
+          "text": "The new JSON Schema export is generated from the canonical model by a deterministic tool rather than written by hand, and exports/1.0.0 is unchanged",
+          "passed": false,
+          "evidence": "exports/1.0.0 is byte-identical to the originals, but the new exports were hand-written: exports/1.1.0/schema.sql header '-- PermitRegistry 1.1.0 (draft, CR-7). Hand-derived from the dmtool 1.0.0 output; regenerate with dmtool when it supports 1.1.0.'; response.md: 'The SQL was written by hand from the 1.0.0 dmtool output, because there's no dmtool here.' No generator script in outputs; exports/1.1.0/schema.json contains editorial text not in model.yaml (keywords description 'receivers must still accept it'; PermitStatus description about 'expired'), indicating it was authored by hand too."
+        },
+        {
+          "text": "The final response lists the decisions the user still needs to make",
+          "passed": true,
+          "evidence": "response.md '## What you still need to decide' lists 6 items (release and partner rollout, 2.0.0, time zone, keywords use by partners, rule start date, smaller points incl. XSD)."
+        },
+        {
+          "text": "The CHANGELOG or compatibility notes warn that partners validating strictly against the 1.0.0 schema will reject documents containing the new optional fields or values",
+          "passed": true,
+          "evidence": "CHANGELOG: 'documents that *use* the new properties are rejected by partners still validating against 1.0.0, so the new properties must only be sent to partners that have adopted 1.1.0 (D-008)'."
+        },
+        {
+          "text": "Applicant data is recognised as personal data (data classification raised or a privacy question raised)",
+          "passed": false,
+          "evidence": "Searched all without_skill outputs for personal|privacy|GDPR|data protection: no matches. Permit nfr classification left as `internal`; no open question about applicant personal data."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "new-model-from-docs",
+      "eval_name": "new-model-from-docs",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.79,
+        "passed": 11,
+        "failed": 3,
+        "total": 14,
+        "time_seconds": 533.7,
+        "tokens": 123926,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "There is exactly one implementation-neutral source of truth for the model (no database-specific types in it), and the PostgreSQL DDL and JSON Schema are generated from it rather than written by hand in parallel",
+          "passed": false,
+          "evidence": "No implementation-neutral model exists. Only hand-written sql/01_schema.sql (PostgreSQL types) and a separately hand-written json-schema/tree-exchange.schema.json; the README presents them as parallel artifacts, and nothing generates either from a common source."
+        },
+        {
+          "text": "Assumptions and/or open questions are written to a file in datamodel/",
+          "passed": true,
+          "evidence": "datamodel/ASSUMPTIONS.md: 'Numbered assumptions (A-01 to A-31) and open questions' (8 open questions), with impact ratings."
+        },
+        {
+          "text": "Species is modelled as a managed, extensible code list or reference table rather than free text",
+          "passed": true,
+          "evidence": "sql/01_schema.sql 'CREATE TABLE species' with is_active and replaced_by_id; README: 'species table (not an enum), with is_active and replaced_by_id for renames'; tree.species_id FK."
+        },
+        {
+          "text": "Inspection records are protected from deletion and have an audit trail (who changed what, when)",
+          "passed": true,
+          "evidence": "02_audit_and_rules.sql: 'CREATE TRIGGER inspection_no_delete BEFORE DELETE ON inspection ... trg_forbid_delete('UC2: inspections are never deleted')', plus TRUNCATE guard and no DELETE grant; audit_log with old/new JSONB and user from app.user, append-only."
+        },
+        {
+          "text": "Corrections of a tree's location are historised so the previous location and the correction time can be retrieved",
+          "passed": true,
+          "evidence": "01_schema.sql tree_location_history: 'location geometry(Point, 25832) NOT NULL -- the PREVIOUS position'; 02: trigger trg_tree_location_history BEFORE UPDATE OF location writes the old point, valid_from/valid_to, user and reason; append-only trigger."
+        },
+        {
+          "text": "Felled trees are kept with felling date and reason, and a felled tree can be linked to one or more replacement trees",
+          "passed": true,
+          "evidence": "tree.status felled with felling_date and felling_reason_code (FK to felling_reason) and CHECK; tree_replacement table (M:N) linking felled and replacement trees; v_compensation_open view."
+        },
+        {
+          "text": "The tree location is a PostGIS Point geometry with SRID 25832 and has a spatial (GiST) index, in the generated DDL or in a separate tuning script",
+          "passed": true,
+          "evidence": "01_schema.sql 'location geometry(Point, 25832) NOT NULL'; 'CREATE INDEX tree_location_gix ON tree USING gist (location)'."
+        },
+        {
+          "text": "Defects are modelled as multi-valued entries each with a severity (low/medium/high), not as comma-separated text",
+          "passed": true,
+          "evidence": "inspection_defect (inspection_id, defect_type_code PK, severity defect_severity ENUM low/medium/high; NOT NULL except legacy rows via CHECK). The legacy comma list is split during migration."
+        },
+        {
+          "text": "Expected volumes (trees, inspections per year, measures per year) are recorded per object type in the model, not only in prose",
+          "passed": false,
+          "evidence": "Volumes appear only in prose (ASSUMPTIONS.md A-25: 'about 6 million inspections after 30 years and about 750,000 measures'; README). There is no model with per-object-type volume metadata, and no tree count or per-year growth is recorded against object types."
+        },
+        {
+          "text": "Inspector names are flagged as personal data and excluded from the open data export",
+          "passed": true,
+          "evidence": "01_schema.sql: 'Staff: PERSONAL DATA. Never exposed in open data.'; COMMENT ON COLUMN staff.full_name IS 'PERSONAL DATA'; 03_views.sql open data view 'contains NO personal data (no inspector, no audit columns)'."
+        },
+        {
+          "text": "The exchange file for the regional agency carries no inspector names (at most an internal or pseudonymous id)",
+          "passed": true,
+          "evidence": "Exchange schema has only 'inspectorCode' (pseudonymous staff_code), additionalProperties false; export function uses 'st.staff_code -- pseudonym, never the name'. Test 'inspector name leaks' is rejected."
+        },
+        {
+          "text": "The generated JSON Schema is a valid JSON Schema, and a realistic example exchange file validates against it",
+          "passed": true,
+          "evidence": "Grader ran tests/validate_exchange_schema.py with python -I: check_schema OK, example file valid, all 11 negative cases rejected. Example is realistic (standing + felled tree with replacement, inspections, measures)."
+        },
+        {
+          "text": "Each model element can be traced to its source (source IDs on the elements or a traceability table to requirements.md / legacy_trees.sql)",
+          "passed": true,
+          "evidence": "README.md 'Requirements traceability' table maps each UC/requirement (UC1-UC5, volumes, personal data, location corrections) to tables/triggers, and the 'Legacy -> new model mapping' table maps every legacy_trees.sql column."
+        },
+        {
+          "text": "For tree species, the run checks for a standardised taxonomy or vocabulary (e.g. GBIF Backbone Taxonomy, World Flora Online) and either recommends reusing it, with a verifiable source and a fit assessment, or explains why the city's own species list is kept; it does not adopt a vocabulary silently",
+          "passed": false,
+          "evidence": "No mention of GBIF, World Flora Online or any standard taxonomy anywhere in datamodel/ (grep for gbif/world flora/taxonom/vocabular found only a comment 'taxonomic synonym handling'). The city list is kept without any vocabulary consideration."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "reverse-engineer-xsd",
+      "eval_name": "reverse-engineer-xsd",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.69,
+        "passed": 9,
+        "failed": 4,
+        "total": 13,
+        "time_seconds": 271.2,
+        "tokens": 90882,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "A canonical model file exists separate from the generated JSON Schema",
+          "passed": true,
+          "evidence": "without_skill/outputs/model/airquality.model.yaml is the canonical model; the JSON Schema is generated separately to generated/airquality.schema.json by tools/generate.py."
+        },
+        {
+          "text": "Position is modelled as a value type without its own identity (a datatype, or explicitly marked as an embedded value without a key)",
+          "passed": false,
+          "evidence": "airquality.model.yaml defines Position under `classes:` ('Position: xml: {typeName: PositionType}') alongside Station etc., with no marker that it is a value type or embedded without identity. No text in the model, response.md or xsd-review.md calls it a value type or datatype; it is embedded only because the XSD nests it."
+        },
+        {
+          "text": "Pollutant is modelled as an extensible or externally governed code list, not a closed enum or an undocumented plain string",
+          "passed": false,
+          "evidence": "airquality.model.yaml SamplingPoint.pollutant is `type: string` with `json: {minLength: 1, examples: [NO2, PM10, ...]}` and the description copied from the XSD. It is not modelled as a code list (no enum or vocabulary entry). response.md: 'Tell me which six pollutants you receive and I'll add them as a code list ... did not enforce that.'"
+        },
+        {
+          "text": "The station kind is modelled as a closed enumeration with traffic, industrial and background",
+          "passed": true,
+          "evidence": "airquality.model.yaml `enums: StationKind: values: traffic, industrial, background` (closed; emitted as xs:enumeration in the generated XSD and a JSON enum)."
+        },
+        {
+          "text": "The meaning of the integer validity and verification codes is flagged as ambiguous",
+          "passed": true,
+          "evidence": "response.md Q6: 'What do `validity` and `verification` mean? They are bare integers with no code list.' xsd-review.md Q6 (High)."
+        },
+        {
+          "text": "The missing coordinate reference system for lat/lon is flagged",
+          "passed": true,
+          "evidence": "response.md Q3: 'Which coordinate system? None is stated, and there are no range limits. I assumed WGS 84'; xsd-review.md Q3 'Coordinates without CRS (High)'."
+        },
+        {
+          "text": "Identifier issues are flagged (xs:ID values only unique within one document, and/or overlap of id and stationCode)",
+          "passed": true,
+          "evidence": "xsd-review.md Q1 '@id vs stationCode' and Q2: 'Uniqueness covers only one document. It says nothing about identity across files.' It also notes the ID space shared between stations and sampling points."
+        },
+        {
+          "text": "The observation volume (roughly 21 million per year: 400 x 6 x 24 x 365) is recorded in the canonical model, not only in prose",
+          "passed": false,
+          "evidence": "No volume figures in model/airquality.model.yaml (a grep for volume/million/57,600 finds nothing). Volume appears only in prose: response.md 'API shape (D1)' and xsd-review.md Q12 ('about 21 million/year')."
+        },
+        {
+          "text": "The high observation volume leads to an API design note (e.g. observations as a separate, paginated resource rather than nested in station documents)",
+          "passed": true,
+          "evidence": "response.md D1: 'Use the nested ObservationCollection only for bulk ingest. For reads, serve /stations, /stations/{code}/sampling-points, a flat, paginated /observations?station=&pollutant=&from=&to=', motivated by about 21 million a year."
+        },
+        {
+          "text": "The generated JSON Schema is a valid JSON Schema and allows null for the observation value",
+          "passed": true,
+          "evidence": "Ran jsonschema Draft202012Validator.check_schema on generated/airquality.schema.json: OK. Instance with value null: 0 errors (value type [number, null])."
+        },
+        {
+          "text": "The JSON Schema keeps the observation value required but nullable, matching the XSD where the element is mandatory but nillable",
+          "passed": true,
+          "evidence": "Observation required includes 'value'; value type [number, null]. Tested: null is valid; key removed gives \"'value' is a required property\"."
+        },
+        {
+          "text": "An XSD generated from the canonical model accepts the same documents as the original 2.1 XSD: a sample delivery valid against observations.xsd also validates against the generated XSD (checked with lxml)",
+          "passed": true,
+          "evidence": "lxml (python -I): examples/sample.xml validates against the original (True) and generated/observations.xsd (True); a self-written minimal doc with nil value, validity 0, verification 7, no offset and an odd pollutant is also valid in both. A lat=95 doc is accepted by both (no tightening)."
+        },
+        {
+          "text": "The pollutant code list is linked to a named standard vocabulary (e.g. the EEA/Eionet air quality pollutant vocabulary) with its register URI and a snapshot date or version, or reusing such a vocabulary is recommended to the user with the reason",
+          "passed": false,
+          "evidence": "The model has no vocabulary link for pollutant (only the description copied from the XSD). xsd-review.md Q5 cites http://dd.eionet.europa.eu/vocabulary/aq/pollutant/ only to note its numeric identifiers; the recommendation is to 'map them to a controlled list' and 'add them as an enum in the model', not to reuse or link the EEA vocabulary. No snapshot date or version. D3 lists 'code-list URIs for pollutant' only as a future partner-schema proposal, with no reason given."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 349.7,
+        "stddev": 125.8375,
+        "min": 213.1,
+        "max": 460.9
+      },
+      "tokens": {
+        "mean": 130156.3333,
+        "stddev": 26747.3119,
+        "min": 101858,
+        "max": 155021
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.78,
+        "stddev": 0.0854,
+        "min": 0.69,
+        "max": 0.86
+      },
+      "time_seconds": {
+        "mean": 354.0,
+        "stddev": 155.7844,
+        "min": 257.1,
+        "max": 533.7
+      },
+      "tokens": {
+        "mean": 103119.6667,
+        "stddev": 18111.9579,
+        "min": 90882,
+        "max": 123926
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.22",
+      "time_seconds": "-4.3",
+      "tokens": "+27037"
+    }
+  },
+  "notes": [
+    "Iteration 2 assertions discriminate much better than iteration 1: new-model 14 vs 11, amend 14 vs 12, xsd 13 vs 9 (iteration 1: 11 vs 10, 10 vs 10, 10 vs 8).",
+    "Still partly method-encoded: single source of truth, volumes in the model and vocabulary checks reward the skill's approach; on some substance the baseline was stronger (tree: trigger-filled location history, exchange-schema business rules, full legacy migration script; xsd: clearer API read-model note).",
+    "Skill/tool issues found: (1) dmtool reads compatibility.projection from the old release, so a model released without it can never get the minor bump; (2) a scope:all constraint on a brand-new attribute is reported as breaking; (3) amend run kept model.version at 1.0.0 while drafting, so preview exports carry the old $id; (4) xsd run's generated XSD tightened lat/lon ranges \u2014 disclosed, but not caught by the single-sample compatibility assertion.",
+    "Assertion gaps to fix: XSD compatibility should test edge-case documents; location-history check should require automatic capture; add checks for exchange-schema business rules and migration safety (additive only); generator assertion partly measures tool availability.",
+    "Cost: with-skill runs used more tokens on average but were faster in wall time (baseline mean inflated by the 534 s tree run)."
+  ]
+}

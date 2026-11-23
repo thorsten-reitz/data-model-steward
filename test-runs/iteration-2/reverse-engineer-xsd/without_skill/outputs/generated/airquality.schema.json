@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/airquality/2.1/observations.schema.json",
+  "title": "Air quality observations (canonical model 2.1.0)",
+  "description": "Hourly (or other averaging-period) air quality measurements reported by monitoring stations, grouped by station and sampling point (one sampling point = one pollutant measured at a station). Generated from model/airquality.model.yaml by tools/generate.py - do not edit.",
+  "x-model-version": "2.1.0",
+  "x-xml-namespace": "http://example.org/airquality/2.1",
+  "$ref": "#/$defs/ObservationCollection",
+  "$defs": {
+    "StationKind": {
+      "title": "StationKind",
+      "description": "Classification of the station by its dominant emission source (EEA station type).",
+      "type": "string",
+      "enum": [
+        "traffic",
+        "industrial",
+        "background"
+      ],
+      "x-enumDescriptions": {
+        "traffic": "Station located such that its pollution level is determined predominantly by emissions from nearby traffic.",
+        "industrial": "Station located such that its pollution level is influenced predominantly by nearby industrial sources.",
+        "background": "Station whose pollution level is not influenced predominantly by any single source or street."
+      }
+    },
+    "ValidityFlag": {
+      "title": "ValidityFlag",
+      "description": "Validity of the measured value. ASSUMED to follow the EEA e-Reporting (AQD) observation validity code list; the XSD does not say so. See issue Q6.",
+      "type": "integer",
+      "oneOf": [
+        {
+          "const": 1,
+          "description": "Valid."
+        },
+        {
+          "const": 2,
+          "description": "Valid, but below detection limit (value is the detection limit or a substitute)."
+        },
+        {
+          "const": 3,
+          "description": "Valid, but below limit of quantification."
+        },
+        {
+          "const": -1,
+          "description": "Not valid."
+        },
+        {
+          "const": -99,
+          "description": "Not valid due to station maintenance or calibration in progress."
+        }
+      ]
+    },
+    "VerificationFlag": {
+      "title": "VerificationFlag",
+      "description": "Verification status of the value. ASSUMED to follow the EEA e-Reporting (AQD) observation verification code list. See issue Q6.",
+      "type": "integer",
+      "oneOf": [
+        {
+          "const": 1,
+          "description": "Verified."
+        },
+        {
+          "const": 2,
+          "description": "Preliminary verified."
+        },
+        {
+          "const": 3,
+          "description": "Not verified."
+        }
+      ]
+    },
+    "ObservationCollection": {
+      "title": "ObservationCollection",
+      "description": "Exchange document. Root of a partner delivery (XML) or of a bulk ingestion request (JSON). Not intended as a REST resource for reads, see design note D1 in xsd-review.md.",
+      "type": "object",
+      "properties": {
+        "stations": {
+          "description": "Stations contained in this delivery (at least one).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Station"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "stations"
+      ],
+      "additionalProperties": false,
+      "x-xml": {
+        "element": "ObservationCollection",
+        "anonymousType": true
+      }
+    },
+    "Station": {
+      "title": "Station",
+      "description": "A fixed air quality monitoring station.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Document-local identifier (xs:ID). Whether it is stable across deliveries and how it relates to stationCode is unspecified (Q1).",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
+          "maxLength": 100
+        },
+        "stationCode": {
+          "description": "Station code, presumably the business identifier (e.g. EEA/EoI local station code such as \"DEBE065\"). Treated as the canonical natural key in the API.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "name": {
+          "description": "Human-readable station name.",
+          "type": "string",
+          "minLength": 1
+        },
+        "operator": {
+          "description": "Organisation operating the station (free text in 2.1).",
+          "type": "string"
+        },
+        "position": {
+          "description": "Location of the station.",
+          "$ref": "#/$defs/Position"
+        },
+        "stationType": {
+          "description": "Station classification by dominant emission source.",
+          "$ref": "#/$defs/StationKind"
+        },
+        "samplingPoints": {
+          "description": "Sampling points at this station (at least one).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SamplingPoint"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "stationCode",
+        "name",
+        "position",
+        "stationType",
+        "samplingPoints"
+      ],
+      "additionalProperties": false,
+      "x-xml": {
+        "typeName": "StationType"
+      }
+    },
+    "Position": {
+      "title": "Position",
+      "description": "Geographic position. CRS is not stated in 2.1; ASSUMED WGS 84 (EPSG:4326), decimal degrees, latitude/longitude order. Altitude ASSUMED metres above mean sea level.",
+      "type": "object",
+      "properties": {
+        "lat": {
+          "description": "Latitude in decimal degrees (assumed WGS 84).",
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "lon": {
+          "description": "Longitude in decimal degrees (assumed WGS 84).",
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "altitude": {
+          "description": "Altitude, assumed metres above mean sea level. Absent and null both mean \"unknown\" (2.1 allows both, see Q4).",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "lat",
+        "lon"
+      ],
+      "additionalProperties": false,
+      "x-xml": {
+        "typeName": "PositionType"
+      }
+    },
+    "SamplingPoint": {
+      "title": "SamplingPoint",
+      "description": "Measurement of one pollutant at a station, with its time series of observations.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Document-local identifier (xs:ID). Must not collide with any station id in the same document.",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
+          "maxLength": 100
+        },
+        "pollutant": {
+          "description": "Code from the EEA pollutant vocabulary, e.g. NO2, PM10, O3.",
+          "type": "string",
+          "minLength": 1,
+          "examples": [
+            "NO2",
+            "PM10",
+            "PM2.5",
+            "O3",
+            "SO2",
+            "CO"
+          ]
+        },
+        "unit": {
+          "description": "Unit of measurement of all values of this sampling point. Free text in 2.1; expected values such as \"ug.m-3\" (EEA notation) or \"mg.m-3\".",
+          "type": "string",
+          "minLength": 1,
+          "examples": [
+            "ug.m-3",
+            "mg.m-3"
+          ]
+        },
+        "observations": {
+          "description": "Observations for this sampling point, may be empty.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Observation"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "pollutant",
+        "unit"
+      ],
+      "additionalProperties": false,
+      "x-xml": {
+        "typeName": "SamplingPointType"
+      }
+    },
+    "Observation": {
+      "title": "Observation",
+      "description": "One aggregated measurement over the interval [begin, end), typically one hour.",
+      "type": "object",
+      "properties": {
+        "begin": {
+          "description": "Start of the averaging period (inclusive). The JSON API requires a UTC offset; 2.1 XML allows a missing one (Q3b).",
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "end": {
+          "description": "End of the averaging period (assumed exclusive). Must be after begin (not checkable in either schema language without extensions).",
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "value": {
+          "description": "Measured value in the sampling point's unit. null = no value (e.g. instrument failure); validity should then be negative (Q7). NaN/INF are not allowed in the canonical model (Q15).",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "validity": {
+          "description": "Validity flag of the value.",
+          "$ref": "#/$defs/ValidityFlag"
+        },
+        "verification": {
+          "description": "Verification flag of the value.",
+          "$ref": "#/$defs/VerificationFlag"
+        }
+      },
+      "required": [
+        "begin",
+        "end",
+        "value",
+        "validity",
+        "verification"
+      ],
+      "additionalProperties": false,
+      "x-xml": {
+        "typeName": "ObservationType"
+      }
+    }
+  }
+}

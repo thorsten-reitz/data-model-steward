@@ -195,6 +195,13 @@ requirement has no influence on the neutral model but will matter for a specific
    mapping decisions (inheritance strategy, composition nesting, enum representation, ID
    strategy, XML attributes vs. elements) with the user and log them. Preview the
    generated output with `dmtool.py export … --format all -o <tmp dir>`.
+   The generators leave some behaviour to hand-written files next to the exports. Write
+   them, because reviewers check behaviour, not only structure:
+   - `tuning.sql`: triggers that fill the history tables and capture corrections (e.g.
+     the previous location), delete protection, spatial and other indexes from `nfr`.
+   - JSON Schema rules: cross-field rules that JSON Schema can express (`if`/`then`,
+     e.g. "felled requires fellingDate and fellingReason"). Put them in a small wrapper
+     schema that `$ref`s the generated one, so regeneration doesn't lose them.
 4. On the user's go-ahead, run `dmtool.py release datamodel --dry-run`, show the plan, then
    run it without `--dry-run`. The first release is normally `1.0.0`; pass
    `--version 0.1.0` or similar while the model is still unstable. Complete the generated
@@ -220,10 +227,18 @@ need Y").
    (add optional instead of required, deprecate instead of remove, add a new attribute
    instead of retyping, widen instead of narrow, …).
 5. **Apply** the accepted changes to `model.yaml`, with `since:` on new elements and
-   `deprecated:` on retired ones, and new source/decision references. Set `status: draft`
-   while working; `release` sets the version. Rules that only apply to data created from
-   now on get `scope: new`; rules that are only checked as warnings get
-   `enforcement: warning`. Neither breaks existing data.
+   `deprecated:` on retired ones, and new source/decision references.
+   - **Version:** set `status: draft` and set `model.version` to the intended next version
+     (`diff` recommends one). Previews then carry the right version and `$id`, not the
+     released one's. Write preview exports to `exports/<next version>/`; `release`
+     regenerates them.
+   - **Rules:** rules that only apply to data created from now on get `scope: new`; rules
+     that are only checked as warnings get `enforcement: warning`. Neither breaks existing
+     data. A rule that only refers to attributes added in this version can't be violated
+     by existing data either; `diff` recognises that.
+   - **Projection:** if the exchange interface will serve old partners their version,
+     declare `compatibility.projection: true` in the new model. `diff` and `release` then
+     treat optional additions as minor.
 6. **Verify** with `dmtool.py diff releases/<last>/model.yaml model.yaml`. The tool
    classifies each change and recommends a version bump. It reports two kinds of break:
    - `BREAKING`: existing data or every consumer is affected.
