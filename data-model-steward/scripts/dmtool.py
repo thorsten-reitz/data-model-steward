@@ -8,6 +8,8 @@ Usage:
   dmtool.py export   <model.yaml> --format jsonschema|xsd|postgres|all [-o out] [--lang de]
   dmtool.py diff     <old.yaml> <new.yaml> [--consumers strict|tolerant] [--json]
   dmtool.py release  [dir] [--version X.Y.Z] [--date YYYY-MM-DD] [--dry-run]
+  dmtool.py migrate  <old.yaml> <new.yaml> [-o migrate.sql]
+  dmtool.py docs     <model.yaml> [-o model.md] [--lang de|all]
 
 `dir` is the model workspace (default: ./datamodel). Requires PyYAML.
 Format: references/model-format.md
@@ -142,6 +144,47 @@ def values_of(enum):
 
 def codes_of(enum):
     return [v.get("code") for v in values_of(enum)]
+
+
+def vocab_of(enum):
+    return enum.get("vocabulary") or {}
+
+
+def value_uri(enum, v):
+    """URI of a code-list value: explicit `uri`, else vocabulary.valueUriTemplate with {code}."""
+    if v.get("uri"):
+        return str(v["uri"])
+    tpl = vocab_of(enum).get("valueUriTemplate")
+    return tpl.replace("{code}", str(v.get("code"))) if tpl else None
+
+
+def uri_coded(enum):
+    """True when the wire format carries value URIs instead of codes (vocabulary.represent: uri)."""
+    return vocab_of(enum).get("represent") == "uri"
+
+
+def wire_values(enum):
+    """Values as they appear in exchanged data: codes, or URIs for vocabulary.represent: uri."""
+    if uri_coded(enum):
+        return [value_uri(enum, v) for v in values_of(enum)]
+    return codes_of(enum)
+
+
+def vocab_note(enum):
+    """One-line provenance note for a reused vocabulary, or ''."""
+    vc = vocab_of(enum)
+    if not vc:
+        return ""
+    parts = [f"Values from {vc.get('name') or 'external vocabulary'}"]
+    if vc.get("uri"):
+        parts.append(f"<{vc['uri']}>")
+    if vc.get("version"):
+        parts.append(f"version {vc['version']}")
+    if vc.get("retrieved"):
+        parts.append(f"retrieved {vc['retrieved']}")
+    if vc.get("subset"):
+        parts.append("(subset)")
+    return " ".join(parts) + "."
 
 
 def all_attrs(m, cname):
@@ -338,6 +381,33 @@ def validate(m, model_path=None, as_released=False):
         for v in vals:
             check_text(f"{n}.{v.get('code')}.label", v.get("label"))
             check_text(f"{n}.{v.get('code')}.description", v.get("description"))
+        vc = e.get("vocabulary")
+        if vc is not None:
+            if not isinstance(vc, dict):
+                errors.append(f"{n}: vocabulary must be a mapping {{uri, name, publisher, version, retrieved, licence, …}}")
+                continue
+            if not vc.get("uri"):
+                errors.append(f"{n}: vocabulary.uri is missing (the register or code list URI)")
+            if not (vc.get("version") or vc.get("retrieved")):
+                warnings.append(f"{n}: vocabulary has neither version nor retrieved date — the snapshot can't be dated")
+            if not vc.get("licence"):
+                info.append(f"{n}: vocabulary licence not recorded")
+            if vc.get("represent") not in (None, "code", "uri"):
+                errors.append(f"{n}: vocabulary.represent must be code or uri")
+            if uri_coded(e) and ct == "integer":
+                errors.append(f"{n}: vocabulary.represent uri can't be combined with codeType integer")
+            no_uri = [str(v.get("code")) for v in vals if not value_uri(e, v)]
+            if no_uri:
+                (errors if uri_coded(e) else warnings).append(
+                    f"{n}: values without URI (set uri or vocabulary.valueUriTemplate): {', '.join(no_uri[:8])}")
+            ret = vc.get("retrieved")
+            if ret:
+                try:
+                    age = (datetime.date.today() - datetime.date.fromisoformat(str(ret))).days
+                    if age > 365:
+                        info.append(f"{n}: vocabulary snapshot is {age} days old — check {vc.get('uri')} for updates")
+                except ValueError:
+                    warnings.append(f"{n}: vocabulary.retrieved '{ret}' is not a date (YYYY-MM-DD)")
 
     for n, e in m["datatypes"].items():
         if check_common(n, e):
@@ -601,19 +671,27 @@ def export_jsonschema(m, lang=None):
 
     defs = {}
     for n, e in m["enumerations"].items():
-        codes = codes_of(e)
+        codes = wire_values(e)
         typ = "integer" if e.get("codeType") == "integer" else "string"
         d = doc(e)
+        fmt = {"format": "uri"} if uri_coded(e) else {}
         if e.get("extensible"):
-            d.update({"type": typ, "examples": codes, "$comment": "extensible code list; known values in examples"})
+            d.update({"type": typ, **fmt, "examples": codes, "$comment": "extensible code list; known values in examples"})
         else:
-            d.update({"type": typ, "enum": codes})
+            d.update({"type": typ, **fmt, "enum": codes})
         labels = {}
-        for v in values_of(e):
+        for v, w in zip(values_of(e), codes):
             for lg, t in texts(m, v.get("label")).items():
-                labels.setdefault(lg, {})[str(v.get("code"))] = t
+                labels.setdefault(lg, {})[str(w)] = t
         if labels:
             d["x-enumLabels"] = labels
+        vc = vocab_of(e)
+        if vc:
+            d["x-vocabulary"] = {k: str(vc[k]) for k in ("uri", "name", "publisher", "version", "retrieved", "licence")
+                                 if vc.get(k)}
+            uris = {str(v.get("code")): value_uri(e, v) for v in values_of(e) if value_uri(e, v)}
+            if uris and not uri_coded(e):
+                d["x-enumUris"] = uris
         if e.get("deprecated"):
             d["deprecated"] = True
         defs[dn(n)] = d
@@ -826,21 +904,23 @@ def export_xsd(m, lang=None):
           '    <xs:attribute name="href" type="xs:string" use="required"/>',
           '  </xs:complexType>']
     for n, e in m["enumerations"].items():
-        base = "xs:int" if e.get("codeType") == "integer" else "xs:string"
+        base = "xs:int" if e.get("codeType") == "integer" else "xs:anyURI" if uri_coded(e) else "xs:string"
         L.append(f'  <xs:simpleType name="{type_name(n)}">')
+        note = vocab_note(e)
         if e.get("extensible"):
-            known = ", ".join(str(c) for c in codes_of(e))
-            L += annotation(e.get("description"), "    ", after=f"Extensible code list. Known values: {known}")
+            known = ", ".join(str(c) for c in wire_values(e))
+            L += annotation(e.get("description"), "    ",
+                            after=" ".join(x for x in (note, f"Extensible code list. Known values: {known}") if x))
             L += [f'    <xs:restriction base="{base}"/>', "  </xs:simpleType>"]
             continue
-        L += annotation(e.get("description"), "    ")
+        L += annotation(e.get("description"), "    ", after=note)
         L.append(f'    <xs:restriction base="{base}">')
-        for v in values_of(e):
+        for v, w in zip(values_of(e), wire_values(e)):
             vann = annotation(v.get("label") or v.get("description"), "        ")
             if vann:
-                L += [f'      <xs:enumeration value="{q(v.get("code"))}">'] + vann + ["      </xs:enumeration>"]
+                L += [f'      <xs:enumeration value="{q(w)}">'] + vann + ["      </xs:enumeration>"]
             else:
-                L.append(f'      <xs:enumeration value="{q(v.get("code"))}"/>')
+                L.append(f'      <xs:enumeration value="{q(w)}"/>')
         L += ["    </xs:restriction>", "  </xs:simpleType>"]
     for n, e in m["datatypes"].items():
         L.append(f'  <xs:complexType name="{type_name(n)}">')
@@ -921,18 +1001,28 @@ def export_postgres(m, lang=None):
 
     enum_sql = {}  # name -> (kind, sql name or None, codes)
     for n, e in m["enumerations"].items():
-        codes = codes_of(e)
+        codes = wire_values(e)
         integer = e.get("codeType") == "integer"
         tn = f"{sch}.{_pgname(e, n)}"
-        if e.get("extensible"):
+        vocab = bool(vocab_of(e))
+        if e.get("extensible") or vocab:
+            # reused vocabularies always get a lookup table: it keeps the value URIs and long URI codes
             out.append(f"CREATE TABLE {tn} (\n  code {'integer' if integer else 'text'} PRIMARY KEY,\n"
-                       f"  label text,\n  description text,\n  deprecated boolean NOT NULL DEFAULT false\n);")
-            rows = [f"({c if integer else _qlit(c)}, {_qlit(text(m, v.get('label'), L_)) if v.get('label') else 'NULL'})"
-                    for c, v in zip(codes, values_of(e))]
+                       f"  label text,\n  description text,\n" + ("  uri text,\n" if vocab else "") +
+                       "  deprecated boolean NOT NULL DEFAULT false\n);")
+            rows = []
+            for c, v in zip(codes, values_of(e)):
+                cells = [str(c) if integer else _qlit(c),
+                         _qlit(text(m, v.get("label"), L_)) if v.get("label") else "NULL"]
+                if vocab:
+                    cells.append(_qlit(value_uri(e, v)) if value_uri(e, v) else "NULL")
+                rows.append(f"({', '.join(cells)})")
             if rows:
-                out.append(f"INSERT INTO {tn} (code, label) VALUES " + ", ".join(rows) + ";")
+                out.append(f"INSERT INTO {tn} (code, label{', uri' if vocab else ''}) VALUES " + ", ".join(rows) + ";")
             enum_sql[n] = ("table", tn, codes)
-            comment("TABLE", tn, e.get("description"))
+            desc = " ".join(x for x in (text(m, e.get("description"), L_), vocab_note(e)) if x)
+            if desc:
+                comments.append(f"COMMENT ON TABLE {tn} IS {_qlit(desc)};")
         elif integer:
             enum_sql[n] = ("int", None, codes)
         else:
@@ -1253,6 +1343,22 @@ def diff(mo, mn, consumers=None):
         if bool(e.get("extensible")) != bool(ne.get("extensible")):
             raw.append(("minor", n, "enumeration made extensible") if ne.get("extensible")
                        else ("major", n, "enumeration closed: values outside the list become invalid"))
+        ov, nv_ = vocab_of(e), vocab_of(ne)
+        if ov.get("uri") != nv_.get("uri"):
+            raw.append(("major" if ov else "minor", n,
+                        f"vocabulary {ov.get('uri') or '(none)'} → {nv_.get('uri') or '(none)'}"
+                        + (" (code list source changed: check that codes still mean the same)" if ov else
+                           " (now linked to a standard vocabulary)")))
+        elif (ov.get("version"), ov.get("retrieved")) != (nv_.get("version"), nv_.get("retrieved")):
+            raw.append(("patch", n, f"vocabulary snapshot updated ({ov.get('version') or ov.get('retrieved')} → "
+                                    f"{nv_.get('version') or nv_.get('retrieved')})"))
+        if (ov.get("represent") or "code") != (nv_.get("represent") or "code"):
+            raw.append(("major", n, f"values now exchanged as {nv_.get('represent') or 'code'}s (wire format changes)"))
+        ouris = {v.get("code"): value_uri(e, v) for v in values_of(e)}
+        for v in values_of(ne):
+            c = v.get("code")
+            if c in ouris and ouris[c] and value_uri(ne, v) != ouris[c]:
+                raw.append(("major" if uri_coded(ne) else "patch", f"{n}.{c}", f"value URI changed {ouris[c]} → {value_uri(ne, v)}"))
         if e.get("codeType", "string") != ne.get("codeType", "string"):
             raw.append(("major", n, f"codeType {e.get('codeType', 'string')} → {ne.get('codeType', 'string')}"))
         _cmp_serialisation(n, e, ne, raw)
@@ -1379,6 +1485,352 @@ def print_diff(changes, ov, nv, mode):
     for lvl, p, c, tag in sorted(changes, key=lambda x: (order[x[0]], x[1])):
         print(f"  [{tags[tag]:10}] {p}: {c}")
     print()
+
+
+# --------------------------------------------------------------------------- migrate (PostgreSQL)
+
+def _split_top(s, sep=","):
+    """Split on `sep` outside quotes and parentheses."""
+    parts, depth, quote, cur = [], 0, False, []
+    i = 0
+    while i < len(s):
+        ch = s[i]
+        if quote:
+            cur.append(ch)
+            if ch == "'":
+                if i + 1 < len(s) and s[i + 1] == "'":
+                    cur.append("'")
+                    i += 1
+                else:
+                    quote = False
+        elif ch == "'":
+            quote = True
+            cur.append(ch)
+        elif ch == "(":
+            depth += 1
+            cur.append(ch)
+        elif ch == ")":
+            depth -= 1
+            cur.append(ch)
+        elif ch == sep and depth == 0:
+            parts.append("".join(cur).strip())
+            cur = []
+        else:
+            cur.append(ch)
+        i += 1
+    if "".join(cur).strip():
+        parts.append("".join(cur).strip())
+    return parts
+
+
+def _pg_parse(sql):
+    """Parse dmtool's own PostgreSQL output into comparable parts."""
+    P = {"tables": {}, "table_sql": {}, "types": {}, "inserts": {}, "fks": [], "indexes": [], "comments": {},
+         "extensions": [], "schema": None}
+    for mt in re.finditer(r"^CREATE TABLE (\S+) \(\n(.*?)\n\);", sql, re.S | re.M):
+        cols = {}
+        for line in mt.group(2).split(",\n"):
+            line = line.strip()
+            if line.startswith("PRIMARY KEY"):
+                cols["__pk__"] = line
+            else:
+                name, _, d = line.partition(" ")
+                cols[name] = d
+        P["tables"][mt.group(1)] = cols
+        P["table_sql"][mt.group(1)] = mt.group(0)
+    for mt in re.finditer(r"^CREATE TYPE (\S+) AS ENUM \((.*)\);$", sql, re.M):
+        P["types"][mt.group(1)] = [x.strip()[1:-1].replace("''", "'") for x in _split_top(mt.group(2))]
+    for mt in re.finditer(r"^INSERT INTO (\S+) \(([^)]*)\) VALUES (.*);$", sql, re.M):
+        cols = [c.strip() for c in mt.group(2).split(",")]
+        rows = {}
+        for r in _split_top(mt.group(3)):
+            cells = _split_top(r.strip()[1:-1])
+            rows[cells[0]] = cells
+        P["inserts"][mt.group(1)] = (cols, rows)
+    P["fks"] = re.findall(r"^ALTER TABLE .* FOREIGN KEY .*;$", sql, re.M)
+    P["indexes"] = re.findall(r"^CREATE INDEX .*;$", sql, re.M)
+    P["extensions"] = re.findall(r"^CREATE EXTENSION .*;$", sql, re.M)
+    for mt in re.finditer(r"^COMMENT ON (TABLE|COLUMN|TYPE) (\S+) IS (.*);$", sql, re.M):
+        P["comments"][(mt.group(1), mt.group(2))] = mt.group(0)
+    sm = re.search(r"^CREATE SCHEMA IF NOT EXISTS (\S+);$", sql, re.M)
+    P["schema"] = sm.group(1) if sm else None
+    return P
+
+
+def _coldef(d):
+    chk = re.search(r" CHECK \((.*)\)$", d)
+    head = d[:chk.start()] if chk else d
+    return {"type": re.split(r" (?:NOT NULL|UNIQUE|DEFAULT|PRIMARY KEY|GENERATED)", head)[0].strip(),
+            "notnull": " NOT NULL" in head, "unique": " UNIQUE" in head, "pk": "PRIMARY KEY" in head,
+            "generated": "GENERATED" in head, "default": bool(re.search(r" DEFAULT ", head)),
+            "check": chk.group(1) if chk else None}
+
+
+def migrate(mo, mn):
+    """PostgreSQL migration script from the old to the new model (dmtool's own DDL compared)."""
+    po, pn = _pg_parse(export_postgres(mo)), _pg_parse(export_postgres(mn))
+    ov, nv = mo["model"].get("version"), mn["model"].get("version")
+    changes = diff(mo, mn)
+    pre, body, todo = [], [], []
+
+    def short(t):
+        return t.split(".")[-1]
+
+    if po["schema"] != pn["schema"]:
+        todo.append(f"-- BREAKING: schema {po['schema']} → {pn['schema']}: rename with ALTER SCHEMA … RENAME TO, then re-run")
+    for x in pn["extensions"]:
+        if x not in po["extensions"]:
+            body.append(x)
+    for t, vals in pn["types"].items():
+        if t not in po["types"]:
+            body.append(f"CREATE TYPE {t} AS ENUM ({', '.join(_qlit(v) for v in vals)});")
+            continue
+        for v in vals:
+            if v not in po["types"][t]:
+                pre.append(f"ALTER TYPE {t} ADD VALUE IF NOT EXISTS {_qlit(v)};")
+        for v in po["types"][t]:
+            if v not in vals:
+                todo.append(f"-- BREAKING: enum value {v!r} removed from {t}; PostgreSQL can't drop enum values — "
+                            f"migrate rows using it, then recreate the type")
+    for t in po["types"]:
+        if t not in pn["types"]:
+            todo.append(f"-- type {t} no longer used; after migrating columns: DROP TYPE {t};")
+    for t, sql in pn["table_sql"].items():
+        if t not in po["tables"]:
+            body.append(sql)
+    for t, cols in pn["tables"].items():
+        if t not in po["tables"]:
+            continue
+        old = po["tables"][t]
+        for c, d in cols.items():
+            if c == "__pk__":
+                if old.get("__pk__") != d:
+                    todo.append(f"-- BREAKING: primary key of {t} changed to {d}; migrate by hand")
+                continue
+            nd = _coldef(d)
+            if c not in old:
+                if nd["pk"]:
+                    todo.append(f"-- BREAKING: new primary key column {t}.{c}; migrate by hand")
+                    continue
+                if nd["notnull"] and not nd["default"] and not nd["generated"]:
+                    body.append(f"ALTER TABLE {t} ADD COLUMN {c} {d.replace(' NOT NULL', '')};")
+                    todo.append(f"-- TODO: fill {t}.{c} for existing rows, then:\n"
+                                f"--   ALTER TABLE {t} ALTER COLUMN {c} SET NOT NULL;")
+                else:
+                    body.append(f"ALTER TABLE {t} ADD COLUMN {c} {d};")
+                continue
+            od = _coldef(old[c])
+            if od["type"] != nd["type"]:
+                body.append(f"-- REVIEW: type {od['type']} → {nd['type']} (check that existing values convert)")
+                body.append(f"ALTER TABLE {t} ALTER COLUMN {c} TYPE {nd['type']} USING {c}::{nd['type']};")
+            if od["notnull"] != nd["notnull"]:
+                if nd["notnull"]:
+                    body.append(f"-- REVIEW: {t}.{c} becomes NOT NULL; fails if existing rows have NULL")
+                    body.append(f"ALTER TABLE {t} ALTER COLUMN {c} SET NOT NULL;")
+                else:
+                    body.append(f"ALTER TABLE {t} ALTER COLUMN {c} DROP NOT NULL;")
+            if od["unique"] != nd["unique"]:
+                body.append(f"ALTER TABLE {t} ADD CONSTRAINT {short(t)}_{c}_key UNIQUE ({c});" if nd["unique"]
+                            else f"ALTER TABLE {t} DROP CONSTRAINT IF EXISTS {short(t)}_{c}_key;")
+            if od["check"] != nd["check"]:
+                body.append(f"ALTER TABLE {t} DROP CONSTRAINT IF EXISTS {short(t)}_{c}_check;")
+                if nd["check"]:
+                    body.append(f"ALTER TABLE {t} ADD CONSTRAINT {short(t)}_{c}_check CHECK ({nd['check']});")
+        for c in old:
+            if c not in cols and c != "__pk__":
+                todo.append(f"-- BREAKING: column {t}.{c} is no longer in the model. After migrating its data:\n"
+                            f"--   ALTER TABLE {t} DROP COLUMN {c};")
+    for t in po["tables"]:
+        if t not in pn["tables"]:
+            todo.append(f"-- BREAKING: table {t} is no longer in the model. After migrating its data:\n--   DROP TABLE {t};")
+    for t, (cols, rows) in pn["inserts"].items():
+        o_rows = po["inserts"].get(t, (cols, {}))[1]
+        changed = [r for k, r in rows.items() if o_rows.get(k) != r]
+        if changed:
+            upd = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols[1:])
+            body.append(f"INSERT INTO {t} ({', '.join(cols)}) VALUES "
+                        + ", ".join(f"({', '.join(r)})" for r in changed)
+                        + f" ON CONFLICT (code) DO UPDATE SET {upd};")
+        for k in o_rows:
+            if k not in rows:
+                body.append(f"UPDATE {t} SET deprecated = true WHERE code = {k};  -- value removed from the model")
+    for x in pn["fks"]:
+        if x not in po["fks"]:
+            body.append(x)
+    for x in po["fks"]:
+        if x not in pn["fks"]:
+            todo.append(f"-- foreign key no longer generated (drop its constraint by name if needed): {x}")
+    for x in pn["indexes"]:
+        if x not in po["indexes"]:
+            body.append(x)
+    for k, x in pn["comments"].items():
+        if po["comments"].get(k) != x:
+            body.append(x)
+    hints = [f"-- hint: {p}: {c}" for lv, p, c, tag in changes if c.startswith("hint:")]
+    if hints:
+        todo += [h + " → consider ALTER TABLE … RENAME COLUMN instead of add/drop" for h in hints]
+    head = [f"-- Migration {ov} → {nv}, generated by dmtool migrate from the two models.",
+            "-- Review before running. Lines marked REVIEW/TODO/BREAKING need attention.", "--",
+            "-- Model changes:"]
+    head += [f"--   [{tag}] {p}: {c}" for lv, p, c, tag in changes if not c.startswith("hint:")] or ["--   (none)"]
+    out = head + [""]
+    if pre:
+        out += ["-- Enum values must be added outside the transaction that first uses them.", *pre, ""]
+    out += ["BEGIN;", "", *body, "", "COMMIT;"]
+    if todo:
+        out += ["", "-- Manual steps:", *todo]
+    return "\n".join(out) + "\n"
+
+
+# --------------------------------------------------------------------------- docs (Markdown review page)
+
+DOC_HEADINGS = {
+    "en": {"overview": "Overview", "review": "Review status", "diagram": "Diagram", "classes": "Object types",
+           "datatypes": "Value types", "enums": "Code lists", "constraints": "Rules", "attr": "Attribute",
+           "label": "Label", "type": "Type", "mult": "Mult.", "desc": "Definition", "notes": "Notes",
+           "role": "Role", "target": "Target", "kind": "Kind", "code": "Code", "uri": "URI", "rule": "Rule",
+           "applies": "Applies to", "enforcement": "Enforcement", "proposed": "Not yet confirmed (proposed)",
+           "missing": "Missing translations", "open": "Open questions and assumptions", "none": "none",
+           "assoc": "Associations", "source": "Source", "version": "Version", "status": "Status",
+           "purposes": "Purposes", "languages": "Languages", "namespace": "Namespace", "extends": "Extends",
+           "identifier": "Identifier", "history": "History", "volume": "Volume", "extensible": "extensible",
+           "closed": "closed", "generated": "Generated by dmtool docs from"},
+    "de": {"overview": "Überblick", "review": "Prüfstatus", "diagram": "Diagramm", "classes": "Objektarten",
+           "datatypes": "Datentypen", "enums": "Codelisten", "constraints": "Regeln", "attr": "Attribut",
+           "label": "Bezeichnung", "type": "Typ", "mult": "Mult.", "desc": "Definition", "notes": "Hinweise",
+           "role": "Rolle", "target": "Ziel", "kind": "Art", "code": "Code", "uri": "URI", "rule": "Regel",
+           "applies": "Gilt für", "enforcement": "Durchsetzung", "proposed": "Noch nicht bestätigt (proposed)",
+           "missing": "Fehlende Übersetzungen", "open": "Offene Fragen und Annahmen", "none": "keine",
+           "assoc": "Beziehungen", "source": "Quelle", "version": "Version", "status": "Status",
+           "purposes": "Zwecke", "languages": "Sprachen", "namespace": "Namensraum", "extends": "Erweitert",
+           "identifier": "Kennung", "history": "Historisierung", "volume": "Menge", "extensible": "erweiterbar",
+           "closed": "geschlossen", "generated": "Erzeugt mit dmtool docs aus"},
+}
+
+
+def _md(s):
+    return str(s if s is not None else "").replace("|", "\\|").replace("\n", " ")
+
+
+def docs(m, lang=None, model_path=None):
+    L_ = lang or default_lang(m)
+    H = DOC_HEADINGS.get(L_, DOC_HEADINGS["en"])
+    hdr = m["model"]
+    out = [f"# {text(m, hdr.get('title'), L_) or hdr.get('name')} {hdr.get('version')}", ""]
+    if hdr.get("description"):
+        out += [text(m, hdr.get("description"), L_), ""]
+    out += [f"## {H['overview']}", "",
+            f"| | |", "|---|---|",
+            f"| {H['version']} | {hdr.get('version')} |",
+            f"| {H['status']} | {hdr.get('status', 'draft')} |",
+            f"| {H['purposes']} | {', '.join(hdr.get('purposes') or []) or '—'} |",
+            f"| {H['languages']} | {', '.join(doc_langs(m))} |",
+            f"| {H['namespace']} | {_md(hdr.get('namespace'))} |", ""]
+
+    errors, warnings, _ = validate(m, model_path)
+    proposed = [w for w in warnings + errors if "proposed" in w]
+    missing = [w for w in warnings + errors if "have no '" in w]
+    out += [f"## {H['review']}", "", f"**{H['proposed']}:** " + ("; ".join(proposed) if proposed else H["none"]), "",
+            f"**{H['missing']}:** " + ("; ".join(missing) if missing else H["none"]), ""]
+    if model_path:
+        oq = Path(model_path).parent / "open-questions.md"
+        if oq.exists():
+            items = [ln.strip() for ln in oq.read_text(encoding="utf-8").splitlines()
+                     if re.match(r"^\s*(?:[-*]|#+)?\s*\**\s*[QA]-\d+", ln)]
+            out += [f"**{H['open']}:**", ""] + ([f"- {re.sub(r'^[-*#]+\s*', '', i)}" for i in items] or [H["none"]]) + [""]
+    out += [f"## {H['diagram']}", "", "```mermaid", diagram(m).rstrip(), "```", ""]
+
+    def attr_table(e):
+        rows = [f"| {H['attr']} | {H['label']} | {H['type']} | {H['mult']} | {H['desc']} | {H['notes']} |",
+                "|---|---|---|---|---|---|"]
+        for an, a in attrs_of(e).items():
+            notes = []
+            c = a.get("constraints") or {}
+            notes += [f"{k}={v}" for k, v in c.items()]
+            for flag in ("unique", "voidable", "derived"):
+                if a.get(flag):
+                    notes.append(flag)
+            if a.get("deprecated"):
+                notes.append("**deprecated**")
+            if a.get("since"):
+                notes.append(f"since {a['since']}")
+            if a.get("status") == "proposed":
+                notes.append("*proposed*")
+            if a.get("sources"):
+                notes.append(f"{H['source']}: {', '.join(map(str, a['sources']))}")
+            rows.append(f"| `{an}` | {_md(text(m, a.get('label'), L_))} | {_md(a.get('type'))} | "
+                        f"{_md(a.get('multiplicity', '1'))} | {_md(text(m, a.get('description'), L_))} | "
+                        f"{_md(', '.join(notes))} |")
+        return rows
+
+    def element_head(n, e):
+        lines = [f"### {n}" + (f" — {text(m, e.get('label'), L_)}" if e.get("label") else ""), ""]
+        if e.get("description"):
+            lines += [text(m, e.get("description"), L_), ""]
+        facts = []
+        if e.get("abstract"):
+            facts.append("abstract")
+        if e.get("extends"):
+            facts.append(f"{H['extends']}: {e['extends']}")
+        if e.get("identifier"):
+            facts.append(f"{H['identifier']}: `{e['identifier'].get('attribute')}` ({e['identifier'].get('strategy', '')})")
+        if (e.get("history") or {}).get("mode"):
+            facts.append(f"{H['history']}: {e['history']['mode']}")
+        if (e.get("nfr") or {}).get("volume"):
+            facts.append(f"{H['volume']}: {e['nfr']['volume']}" + (f" (+{e['nfr']['growth']})" if e["nfr"].get("growth") else ""))
+        if e.get("sources"):
+            facts.append(f"{H['source']}: {', '.join(map(str, e['sources']))}")
+        if e.get("status") == "proposed":
+            facts.append("*proposed*")
+        if e.get("deprecated"):
+            facts.append("**deprecated**")
+        if facts:
+            lines += ["- " + "\n- ".join(facts), ""]
+        return lines
+
+    if m["classes"]:
+        out += [f"## {H['classes']}", ""]
+        for n, e in m["classes"].items():
+            out += element_head(n, e) + attr_table(e) + [""]
+            assoc = []
+            for a in m["associations"]:
+                for own, oth in (("from", "to"), ("to", "from")):
+                    if a[own]["class"] == n and (own == "from" or a.get("navigable") == "both") and a[oth].get("role"):
+                        assoc.append(f"| `{a[oth]['role']}` | {a[oth]['class']} | {a[oth].get('multiplicity', '1')} | "
+                                     f"{a.get('kind', 'reference')} | {_md(text(m, a.get('description'), L_))} |")
+            if assoc:
+                out += [f"**{H['assoc']}**", "", f"| {H['role']} | {H['target']} | {H['mult']} | {H['kind']} | {H['desc']} |",
+                        "|---|---|---|---|---|", *assoc, ""]
+    if m["datatypes"]:
+        out += [f"## {H['datatypes']}", ""]
+        for n, e in m["datatypes"].items():
+            out += element_head(n, e) + attr_table(e) + [""]
+    if m["enumerations"]:
+        out += [f"## {H['enums']}", ""]
+        for n, e in m["enumerations"].items():
+            out += element_head(n, e)
+            out += [f"*{H['extensible'] if e.get('extensible') else H['closed']}*"
+                    + (f" — {vocab_note(e)}" if vocab_of(e) else ""), ""]
+            has_uri = any(value_uri(e, v) for v in values_of(e))
+            out += [f"| {H['code']} | {H['label']} | {H['desc']} |" + (f" {H['uri']} |" if has_uri else ""),
+                    "|---|---|---|" + ("---|" if has_uri else "")]
+            for v in values_of(e):
+                dep = " **deprecated**" if v.get("deprecated") else ""
+                out.append(f"| `{_md(v.get('code'))}`{dep} | {_md(text(m, v.get('label'), L_))} | "
+                           f"{_md(text(m, v.get('description'), L_))} |" + (f" {_md(value_uri(e, v) or '')} |" if has_uri else ""))
+            out.append("")
+    if m["constraints"]:
+        out += [f"## {H['constraints']}", "", f"| ID | {H['applies']} | {H['rule']} | {H['enforcement']} |", "|---|---|---|---|"]
+        for c in m["constraints"]:
+            out.append(f"| {_md(c.get('id'))} | {_md(c.get('appliesTo'))} | {_md(text(m, c.get('description'), L_))} | "
+                       f"{c.get('enforcement', 'enforced')}, {c.get('scope', 'all')} |")
+        out.append("")
+    out += ["---", f"*{H['generated']} {hdr.get('name')} {hdr.get('version')} ({L_}).*"]
+    return "\n".join(out) + "\n"
+
+
+def docs_filename(m, lang):
+    return "model.md" if len(doc_langs(m)) == 1 else f"model.{lang}.md"
 
 
 # --------------------------------------------------------------------------- init and release
@@ -1533,10 +1985,14 @@ def release(d, version=None, date=None, dry_run=False):
     m2 = load_from(yaml.safe_load(new_text))
     targets = [t for t in (m2["model"].get("targets") or TARGETS) if t in EXPORTERS]
     entry = changelog_entry(target, date, changes, first=not prev)
+    mig = f"migrate_{prev}_to_{target}.sql" if prev and "postgres" in targets else None
+    doc_files = {lg: docs_filename(m2, lg) for lg in doc_langs(m2)}
     plan = [f"model.yaml: version {cur} → {target}, status released",
             f"releases/{target}/model.yaml",
             *[f"exports/{target}/{EXPORT_FILES[t]}" for t in targets],
             f"exports/{target}/diagram.mmd",
+            *[f"exports/{target}/{fn}" for fn in doc_files.values()],
+            *([f"exports/{target}/{mig}"] if mig else []),
             "CHANGELOG.md: new entry"]
     print(("Would write:" if dry_run else "Release " + target + ":"), *plan, sep="\n  ")
     if dry_run:
@@ -1551,6 +2007,10 @@ def release(d, version=None, date=None, dry_run=False):
     for t in targets:
         (ed / EXPORT_FILES[t]).write_text(EXPORTERS[t](m2), encoding="utf-8")
     (ed / "diagram.mmd").write_text(diagram(m2), encoding="utf-8")
+    for lg, fn in doc_files.items():
+        (ed / fn).write_text(docs(m2, lg, mp), encoding="utf-8")
+    if mig:
+        (ed / mig).write_text(migrate(load(d / "releases" / prev / "model.yaml"), m2), encoding="utf-8")
     cl = d / "CHANGELOG.md"
     old = cl.read_text(encoding="utf-8") if cl.exists() else "# Changelog\n"
     head, sep, rest = old.partition("\n")
@@ -1583,11 +2043,39 @@ def main():
     r = sub.add_parser("release", help="validate, snapshot, export and write a CHANGELOG entry")
     r.add_argument("dir", nargs="?", default="datamodel")
     r.add_argument("--version"); r.add_argument("--date"); r.add_argument("--dry-run", action="store_true")
-    args = ap.parse_args()
+    mg = sub.add_parser("migrate", help="PostgreSQL migration script from old to new model")
+    mg.add_argument("old"); mg.add_argument("new"); mg.add_argument("-o", "--output")
+    dc = sub.add_parser("docs", help="Markdown review page (data dictionary)")
+    dc.add_argument("model"); dc.add_argument("-o", "--output")
+    dc.add_argument("--lang", help="language of the page (default: first declared); 'all' writes one file per language into -o <dir>")
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
+    args = ap.parse_args()
 
+    def emit(content, path):
+        if path:
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+            Path(path).write_text(content, encoding="utf-8")
+            print(f"wrote {path}")
+        else:
+            sys.stdout.write(content)
+
+    if args.cmd == "migrate":
+        emit(migrate(load(args.old), load(args.new)), args.output)
+        return
+    if args.cmd == "docs":
+        m = load(args.model)
+        if args.lang == "all":
+            if not args.output:
+                sys.exit("--lang all needs -o <directory>")
+            for lg in doc_langs(m):
+                emit(docs(m, lg, args.model), str(Path(args.output) / docs_filename(m, lg)))
+            return
+        if args.lang and args.lang not in doc_langs(m):
+            sys.exit(f"--lang {args.lang} is not a declared documentation language {doc_langs(m)}")
+        emit(docs(m, args.lang, args.model), args.output)
+        return
     if args.cmd == "init":
         init_workspace(args.dir, args.name, args.namespace, args.languages)
         return

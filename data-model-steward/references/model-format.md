@@ -99,6 +99,29 @@ enumerations:
         deprecated: {since: 1.2.0, reason: "Replaced by 'withdrawn'", replacedBy: withdrawn}
 ```
 
+Enumeration values can carry `label`, `description`, `uri`, `deprecated` and `since`.
+
+**Reused standard vocabularies** get a `vocabulary` block: a reference to the source
+plus a local snapshot of the values used, each with a URI. See `vocabularies.md` for how
+to find, assess and adopt them.
+
+```yaml
+  Pollutant:
+    extensible: true
+    vocabulary:
+      uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant   # required
+      name: EEA air quality pollutant vocabulary
+      publisher: European Environment Agency
+      version: null            # publisher's version …
+      retrieved: 2026-11-23    # … or retrieval date of the snapshot (one is required)
+      licence: CC BY 4.0
+      subset: true
+      valueUriTemplate: "http://dd.eionet.europa.eu/vocabulary/aq/pollutant/{code}"   # or uri per value
+      represent: code          # code (default) | uri — what the exchanged data carries
+    values:
+      - {code: "8", label: {en: Nitrogen dioxide (NO2)}}
+```
+
 ## 5. `datatypes` (structured values without identity)
 
 Use for values compared by content, not by identity (address, money amount, measure, period).

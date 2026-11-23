@@ -63,6 +63,9 @@ generated one, and vice versa where intended (lxml, see §6).
   languages go in `x-i18n: {de: {title, description}}`. Enumeration value labels go in
   `x-enumLabels: {lang: {code: label}}`.
 - `codeType: integer` → `type: integer` with an integer `enum`.
+- Reused vocabularies: `x-vocabulary` (uri, name, publisher, version, retrieved, licence)
+  and `x-enumUris: {code: uri}`. With `represent: uri`, the enum values are the URIs
+  (`format: uri`).
 
 ## 3. XML Schema (XSD 1.0)
 
@@ -85,6 +88,9 @@ generated one, and vice versa where intended (lxml, see §6).
   known values.
 - Documentation: one `xs:documentation xml:lang="…"` per documentation language, on types,
   elements, attributes and enumeration values (labels).
+- Reused vocabularies: the code list's documentation names the source, version and
+  retrieval date. With `represent: uri`, the base is `xs:anyURI` and the enumeration
+  values are the value URIs.
 - Geometry → `xs:anyType` with an annotation. For real use, import GML
   (`gml:PointPropertyType`, etc.) — this is a decision to confirm and do by hand.
 - Constraints that XSD 1.0 can't express → `xs:annotation/xs:documentation`
@@ -111,17 +117,46 @@ generated one, and vice versa where intended (lxml, see §6).
 - Closed enumeration → `ENUM` type (labels in its comment); `codeType: integer` →
   `smallint`/`integer` column with `CHECK (col IN (…))`; extensible → lookup table
   (`code`, `label` in the export language, `description`, `deprecated`) with a FK.
+- Reused vocabularies always become a lookup table, even when closed. The table gets an
+  extra `uri` column, and its comment names the source. Enum types can't hold value URIs,
+  and PostgreSQL limits enum labels to 63 bytes.
 - `COMMENT ON` texts are in the export language (`--lang`).
 - `geometry` → PostGIS `geometry(<Type>, <SRID>)` and `CREATE EXTENSION IF NOT EXISTS postgis`.
 - Use `nfr` for physical tuning *after* the generated DDL: e.g. GiST index for spatial
   access paths, partitioning for > ~100 M rows or time-based retention, BRIN for
   append-only timestamps. Put these in a separate `tuning.sql` so regeneration doesn't lose them.
-- For a new version of a released model, also produce `migrate_<old>_to_<new>.sql` based on
-  `dmtool.py diff` output (written by you, reviewed by the user).
+- For a new version of a released model, `dmtool.py migrate <old.yaml> <new.yaml>` writes
+  the migration script; `release` puts it in `exports/<version>/migrate_<old>_to_<new>.sql`.
+  It compares the DDL generated for both versions. The script contains:
+  - **automatic statements:** new tables, columns, foreign keys, indexes, comments and
+    lookup values; `ALTER TYPE … ADD VALUE` before the transaction; relaxed NOT NULL;
+    CHECK and UNIQUE changes;
+  - **`REVIEW` statements:** type changes and new NOT NULLs, which may fail on existing data;
+  - **manual steps** at the end: backfills for new mandatory columns, dropped columns and
+    tables, removed enum values, renames (`RENAME COLUMN` instead of add + drop).
+
+  Check it with the user and adapt it, e.g. fill new mandatory columns in the TODO steps.
+  Hand-tuning (`tuning.sql`) is not covered.
 
 `dmtool.py release` regenerates all targets into `exports/<version>/` in the default
 language. For another language, run `export --lang` into the same folder with a suffix,
 e.g. `schema.de.sql`.
+
+## Review page (`dmtool.py docs`)
+
+`docs` writes a Markdown data dictionary for people who shouldn't need to read YAML. It
+renders on GitHub, Mermaid diagram included, and diffs well between versions. It
+contains:
+- an overview;
+- the review status: elements still `proposed`, missing translations, and the questions
+  and assumptions from `open-questions.md`;
+- the diagram;
+- per object type: the facts, an attribute table and the associations;
+- value types, code lists (with source and value URIs) and rules.
+
+Headings are translated for en/de, with English for other languages. `--lang all -o <dir>`
+writes one file per documentation language. `release` adds `model.md` (or `model.<lang>.md`
+per language) to `exports/<version>/`.
 
 ## 5. Other targets (not in the script — write them following the rules above)
 
