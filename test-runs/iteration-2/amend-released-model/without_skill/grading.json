@@ -1,0 +1,100 @@
+{
+  "expectations": [
+    {
+      "text": "datamodel/releases/1.0.0/model.yaml is unchanged",
+      "passed": true,
+      "evidence": "Byte-compared with original eval input (cmp): without_skill/outputs/datamodel/releases/1.0.0/model.yaml identical."
+    },
+    {
+      "text": "The rename of reference to fileNumber does not break 1.0.0 consumers: either fileNumber is added and reference deprecated, or reference is kept (relabelled or aliased as file number) and the rename is deferred to a major version and raised with the user",
+      "passed": true,
+      "evidence": "model.yaml keeps `reference` with `label: File number`, `businessName: fileNumber    # planned technical name in 2.0.0, see D-003`; response decision 2 raises the 2.0.0 rename with the user."
+    },
+    {
+      "text": "keywords is kept and marked deprecated rather than removed",
+      "passed": true,
+      "evidence": "model.yaml keywords `deprecated: true`, `deprecatedSince: 1.1.0`, `removalPlanned: 2.0.0`; exports/1.1.0/schema.json keywords has \"deprecated\": true."
+    },
+    {
+      "text": "The applicant is added as optional (lower bound 0), or making it mandatory is explicitly presented as a breaking decision for the user; a rule that only new permits need an applicant is allowed",
+      "passed": true,
+      "evidence": "model.yaml `applicant: type: Applicant, multiplicity: \"0..1\"` plus C-002 'Every permit created from the 1.1.0 go-live onwards must have an applicant'."
+    },
+    {
+      "text": "The new status expired is handled without silently breaking strict 1.0.0 consumers: either it is derived/calculated with the reason given, or it is added to PermitStatus with the partner impact explicitly flagged",
+      "passed": true,
+      "evidence": "PermitStatus unchanged; DerivedPermitStatus (persistence view only) and DB view permit_effective_status; response: 'Adding a value to the closed, non-extensible status enum would break partners. A stored status would also need a nightly job' (D-005)."
+    },
+    {
+      "text": "validUntil is not silently retyped from date to dateTime; either a new attribute is added or the retyping is escalated as a breaking decision",
+      "passed": true,
+      "evidence": "validUntil stays `type: date`; new `validUntilTime: {type: time, multiplicity: 0..1}` (D-006); response: 'Changing validUntil from a date to a date-time would break every partner and all existing values'."
+    },
+    {
+      "text": "PermitCondition gets an optional category with the values environmental, safety, other",
+      "passed": true,
+      "evidence": "ConditionCategory enum (environmental, safety, other) and `PermitCondition.category` multiplicity \"0..1\" (mandatory for new conditions via C-004 only)."
+    },
+    {
+      "text": "The new version is 1.1.0 with a documented way to keep 1.0.0 partners working (e.g. a projection without the new fields), or 2.0.0 with the breaking reason stated",
+      "passed": true,
+      "evidence": "model.yaml `version: 1.1.0`, status draft (no releases/1.1.0); CHANGELOG/D-008: 'the new properties must only be sent to partners that have adopted 1.1.0'; response: 'until a partner has switched to 1.1.0, we must leave out those fields when sending to that partner. Without them, a 1.1.0 document is a valid 1.0.0 document'."
+    },
+    {
+      "text": "CHANGELOG.md has an entry for the new version that states its compatibility",
+      "passed": true,
+      "evidence": "CHANGELOG '## 1.1.0 - draft (not yet released) - CR-7' / 'Minor, backward-compatible release' followed by a 'Compatibility:' paragraph."
+    },
+    {
+      "text": "The change request is registered as a new source in sources.md",
+      "passed": true,
+      "evidence": "sources.md row 'S2 | Change request CR-7 (permits team) | change-request-CR7.md | 2026-11-15 | change request ...'."
+    },
+    {
+      "text": "The new JSON Schema export is generated from the canonical model by a deterministic tool rather than written by hand, and exports/1.0.0 is unchanged",
+      "passed": false,
+      "evidence": "exports/1.0.0 is byte-identical to the originals, but the new exports were hand-written: exports/1.1.0/schema.sql header '-- PermitRegistry 1.1.0 (draft, CR-7). Hand-derived from the dmtool 1.0.0 output; regenerate with dmtool when it supports 1.1.0.'; response.md: 'The SQL was written by hand from the 1.0.0 dmtool output, because there's no dmtool here.' No generator script in outputs; exports/1.1.0/schema.json contains editorial text not in model.yaml (keywords description 'receivers must still accept it'; PermitStatus description about 'expired'), indicating it was authored by hand too."
+    },
+    {
+      "text": "The final response lists the decisions the user still needs to make",
+      "passed": true,
+      "evidence": "response.md '## What you still need to decide' lists 6 items (release and partner rollout, 2.0.0, time zone, keywords use by partners, rule start date, smaller points incl. XSD)."
+    },
+    {
+      "text": "The CHANGELOG or compatibility notes warn that partners validating strictly against the 1.0.0 schema will reject documents containing the new optional fields or values",
+      "passed": true,
+      "evidence": "CHANGELOG: 'documents that *use* the new properties are rejected by partners still validating against 1.0.0, so the new properties must only be sent to partners that have adopted 1.1.0 (D-008)'."
+    },
+    {
+      "text": "Applicant data is recognised as personal data (data classification raised or a privacy question raised)",
+      "passed": false,
+      "evidence": "Searched all without_skill outputs for personal|privacy|GDPR|data protection: no matches. Permit nfr classification left as `internal`; no open question about applicant personal data."
+    }
+  ],
+  "summary": {
+    "passed": 12,
+    "failed": 2,
+    "total": 14,
+    "pass_rate": 0.86
+  },
+  "timing": {
+    "executor_duration_seconds": 257.1,
+    "total_duration_seconds": 257.1
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The new JSON Schema export is generated from the canonical model by a deterministic tool rather than written by hand, and exports/1.0.0 is unchanged",
+        "reason": "Largely measures tool availability: the baseline had no dmtool and said so. It also does not check that the generated schema is right for the new version: with_skill's preview schema.json has $id .../1.0.0/ because the draft kept version 1.0.0, and this still passes."
+      },
+      {
+        "assertion": "datamodel/releases/1.0.0/model.yaml is unchanged",
+        "reason": "Non-discriminating in this iteration: both runs left releases/1.0.0 untouched."
+      },
+      {
+        "reason": "No assertion checks that generated exports carry the new version identity ($id/version) or that the DB migration is additive/non-destructive; consider adding."
+      }
+    ],
+    "overall": "Most behavioural assertions pass for both runs; only the generator and personal-data assertions discriminate."
+  }
+}

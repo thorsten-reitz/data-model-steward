@@ -1,0 +1,122 @@
+{
+  "expectations": [
+    {
+      "text": "There is exactly one implementation-neutral source of truth for the model (no database-specific types in it), and the PostgreSQL DDL and JSON Schema are generated from it rather than written by hand in parallel",
+      "passed": false,
+      "evidence": "No implementation-neutral model exists. Only hand-written sql/01_schema.sql (PostgreSQL types) and a separately hand-written json-schema/tree-exchange.schema.json; the README presents them as parallel artifacts, and nothing generates either from a common source."
+    },
+    {
+      "text": "Assumptions and/or open questions are written to a file in datamodel/",
+      "passed": true,
+      "evidence": "datamodel/ASSUMPTIONS.md: 'Numbered assumptions (A-01 to A-31) and open questions' (8 open questions), with impact ratings."
+    },
+    {
+      "text": "Species is modelled as a managed, extensible code list or reference table rather than free text",
+      "passed": true,
+      "evidence": "sql/01_schema.sql 'CREATE TABLE species' with is_active and replaced_by_id; README: 'species table (not an enum), with is_active and replaced_by_id for renames'; tree.species_id FK."
+    },
+    {
+      "text": "Inspection records are protected from deletion and have an audit trail (who changed what, when)",
+      "passed": true,
+      "evidence": "02_audit_and_rules.sql: 'CREATE TRIGGER inspection_no_delete BEFORE DELETE ON inspection ... trg_forbid_delete('UC2: inspections are never deleted')', plus TRUNCATE guard and no DELETE grant; audit_log with old/new JSONB and user from app.user, append-only."
+    },
+    {
+      "text": "Corrections of a tree's location are historised so the previous location and the correction time can be retrieved",
+      "passed": true,
+      "evidence": "01_schema.sql tree_location_history: 'location geometry(Point, 25832) NOT NULL -- the PREVIOUS position'; 02: trigger trg_tree_location_history BEFORE UPDATE OF location writes the old point, valid_from/valid_to, user and reason; append-only trigger."
+    },
+    {
+      "text": "Felled trees are kept with felling date and reason, and a felled tree can be linked to one or more replacement trees",
+      "passed": true,
+      "evidence": "tree.status felled with felling_date and felling_reason_code (FK to felling_reason) and CHECK; tree_replacement table (M:N) linking felled and replacement trees; v_compensation_open view."
+    },
+    {
+      "text": "The tree location is a PostGIS Point geometry with SRID 25832 and has a spatial (GiST) index, in the generated DDL or in a separate tuning script",
+      "passed": true,
+      "evidence": "01_schema.sql 'location geometry(Point, 25832) NOT NULL'; 'CREATE INDEX tree_location_gix ON tree USING gist (location)'."
+    },
+    {
+      "text": "Defects are modelled as multi-valued entries each with a severity (low/medium/high), not as comma-separated text",
+      "passed": true,
+      "evidence": "inspection_defect (inspection_id, defect_type_code PK, severity defect_severity ENUM low/medium/high; NOT NULL except legacy rows via CHECK). The legacy comma list is split during migration."
+    },
+    {
+      "text": "Expected volumes (trees, inspections per year, measures per year) are recorded per object type in the model, not only in prose",
+      "passed": false,
+      "evidence": "Volumes appear only in prose (ASSUMPTIONS.md A-25: 'about 6 million inspections after 30 years and about 750,000 measures'; README). There is no model with per-object-type volume metadata, and no tree count or per-year growth is recorded against object types."
+    },
+    {
+      "text": "Inspector names are flagged as personal data and excluded from the open data export",
+      "passed": true,
+      "evidence": "01_schema.sql: 'Staff: PERSONAL DATA. Never exposed in open data.'; COMMENT ON COLUMN staff.full_name IS 'PERSONAL DATA'; 03_views.sql open data view 'contains NO personal data (no inspector, no audit columns)'."
+    },
+    {
+      "text": "The exchange file for the regional agency carries no inspector names (at most an internal or pseudonymous id)",
+      "passed": true,
+      "evidence": "Exchange schema has only 'inspectorCode' (pseudonymous staff_code), additionalProperties false; export function uses 'st.staff_code -- pseudonym, never the name'. Test 'inspector name leaks' is rejected."
+    },
+    {
+      "text": "The generated JSON Schema is a valid JSON Schema, and a realistic example exchange file validates against it",
+      "passed": true,
+      "evidence": "Grader ran tests/validate_exchange_schema.py with python -I: check_schema OK, example file valid, all 11 negative cases rejected. Example is realistic (standing + felled tree with replacement, inspections, measures)."
+    },
+    {
+      "text": "Each model element can be traced to its source (source IDs on the elements or a traceability table to requirements.md / legacy_trees.sql)",
+      "passed": true,
+      "evidence": "README.md 'Requirements traceability' table maps each UC/requirement (UC1-UC5, volumes, personal data, location corrections) to tables/triggers, and the 'Legacy -> new model mapping' table maps every legacy_trees.sql column."
+    },
+    {
+      "text": "For tree species, the run checks for a standardised taxonomy or vocabulary (e.g. GBIF Backbone Taxonomy, World Flora Online) and either recommends reusing it, with a verifiable source and a fit assessment, or explains why the city's own species list is kept; it does not adopt a vocabulary silently",
+      "passed": false,
+      "evidence": "No mention of GBIF, World Flora Online or any standard taxonomy anywhere in datamodel/ (grep for gbif/world flora/taxonom/vocabular found only a comment 'taxonomic synonym handling'). The city list is kept without any vocabulary consideration."
+    }
+  ],
+  "summary": {
+    "passed": 11,
+    "failed": 3,
+    "total": 14,
+    "pass_rate": 0.79
+  },
+  "timing": {
+    "total_tokens": 123926,
+    "duration_ms": 533704,
+    "total_duration_seconds": 533.7
+  },
+  "claims": [
+    {
+      "claim": "The JSON Schema is valid; the example passes and all 11 broken versions are rejected",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Grader re-ran the test script: all PASS."
+    },
+    {
+      "claim": "All SQL files pass the PostgreSQL parser",
+      "type": "process",
+      "verified": false,
+      "evidence": "No transcript; the pglast check cannot be verified."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Assumptions and/or open questions are written to a file in datamodel/",
+        "reason": "Non-discriminating: both runs pass trivially; the prompt explicitly asks for written assumptions. Consider checking that specific conflicts (Roloff 1-5 vs 0-3, legacy felled trees without date) are raised as questions."
+      },
+      {
+        "assertion": "Inspector names are flagged as personal data and excluded from the open data export",
+        "reason": "Non-discriminating: both runs pass. Could be tightened, e.g. require that the open data export also excludes inspector pseudonyms and audit users."
+      },
+      {
+        "assertion": "Corrections of a tree's location are historised so the previous location and the correction time can be retrieved",
+        "reason": "Passes on structure alone; it does not check that a correction is captured automatically (without_skill has a trigger on UPDATE OF location, with_skill relies on the application). Consider requiring a mechanism that guarantees capture."
+      },
+      {
+        "reason": "No assertion checks that the exchange JSON Schema enforces business rules (e.g. a felled tree requires fellingDate/reason). with_skill's schema accepts status 'felled' without a date; without_skill's rejects it."
+      },
+      {
+        "reason": "No assertion covers the legacy migration (without_skill wrote a full migration script; with_skill only a mapping doc) or offline client-generated IDs; both handled IDs, but migration depth differs."
+      }
+    ],
+    "overall": "Most assertions are achievable by any competent run; the discriminating ones are #1 (single source), #9 (volumes in model) and #14 (vocabulary), which partly encode the skill's own method."
+  }
+}

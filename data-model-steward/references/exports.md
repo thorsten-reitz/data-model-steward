@@ -38,9 +38,15 @@ carry the other languages (see below). `--format all -o <dir>` writes every targ
 
 Existing wire formats: when the model must reproduce an existing XSD or JSON format, use
 `names` for deviating names, `xml.attribute`/`xml.type` for XML attributes such as
-`xs:ID`, and `codeType: integer` for numeric code lists. Then check compatibility: a
-sample document valid against the original schema must also validate against the
-generated one, and vice versa where intended (lxml, see §6).
+`xs:ID`, and `codeType: integer` for numeric code lists. Then check compatibility with lxml (§6):
+- Test a typical valid document **and edge cases**: nil and omitted optional values,
+  timestamps without a time zone, unknown code values, extreme or out-of-range numbers,
+  repeated elements at their bounds. One sample is not enough.
+- Every document the original accepts must also validate against the generated schema,
+  and vice versa where intended.
+- Any deliberate tightening, such as coordinate ranges or required time zones, breaks
+  existing senders. Record it as a decision, tell the user, or keep it out of the
+  compatible schema and enforce it elsewhere, e.g. in a stricter API schema.
 
 ## 2. JSON Schema (draft 2020-12)
 

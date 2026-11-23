@@ -1,0 +1,20 @@
+{
+  "eval_name": "new-model-from-docs",
+  "prompt": "Hi! We need a proper data model for our new urban tree cadastre. The requirements doc and the dump of our legacy schema are attached. Target is PostgreSQL/PostGIS for the app, plus a JSON Schema for the monthly exchange file to the regional agency. I'm in meetings all day so I can't answer questions right now \u2014 please make sensible assumptions, write them down so I can check them later, and give me a complete first draft including the generated schemas. Put everything in a datamodel/ folder.",
+  "assertions": [
+    "There is exactly one implementation-neutral source of truth for the model (no database-specific types in it), and the PostgreSQL DDL and JSON Schema are generated from it rather than written by hand in parallel",
+    "Assumptions and/or open questions are written to a file in datamodel/",
+    "Species is modelled as a managed, extensible code list or reference table rather than free text",
+    "Inspection records are protected from deletion and have an audit trail (who changed what, when)",
+    "Corrections of a tree's location are historised so the previous location and the correction time can be retrieved",
+    "Felled trees are kept with felling date and reason, and a felled tree can be linked to one or more replacement trees",
+    "The tree location is a PostGIS Point geometry with SRID 25832 and has a spatial (GiST) index, in the generated DDL or in a separate tuning script",
+    "Defects are modelled as multi-valued entries each with a severity (low/medium/high), not as comma-separated text",
+    "Expected volumes (trees, inspections per year, measures per year) are recorded per object type in the model, not only in prose",
+    "Inspector names are flagged as personal data and excluded from the open data export",
+    "The exchange file for the regional agency carries no inspector names (at most an internal or pseudonymous id)",
+    "The generated JSON Schema is a valid JSON Schema, and a realistic example exchange file validates against it",
+    "Each model element can be traced to its source (source IDs on the elements or a traceability table to requirements.md / legacy_trees.sql)",
+    "For tree species, the run checks for a standardised taxonomy or vocabulary (e.g. GBIF Backbone Taxonomy, World Flora Online) and either recommends reusing it, with a verifiable source and a fit assessment, or explains why the city's own species list is kept; it does not adopt a vocabulary silently"
+  ]
+}

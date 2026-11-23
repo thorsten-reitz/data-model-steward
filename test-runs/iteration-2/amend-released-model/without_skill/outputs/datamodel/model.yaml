@@ -1,0 +1,199 @@
+
+model:
+  name: PermitRegistry
+  title: Permit Registry Model
+  description: Permits issued by authorities, with their conditions.
+  namespace: https://example.org/models/permit-registry
+  prefix: pr
+  version: 1.1.0
+  status: draft            # candidate for release; 1.0.0 snapshot stays in releases/1.0.0
+  previousVersion: 1.0.0
+  purposes: [persistence, exchange]
+  targets: [postgres, jsonschema, xsd]
+  conventions:
+    language: en
+  standards: []
+  sources: [S1, S2]
+  exportOptions:
+    jsonschema: {root: Permit, closed: true}
+
+enumerations:
+  PermitStatus:
+    description: >-
+      Lifecycle status of a permit (stored status). "Expired" is NOT a stored status in 1.x;
+      it is derived from validUntil/validUntilTime, see DerivedPermitStatus and D-005.
+    extensible: false
+    values:
+      - {code: applied, description: Application received, not yet decided.}
+      - {code: granted}
+      - {code: refused}
+      - {code: revoked}
+    sources: [S1]
+
+  DerivedPermitStatus:
+    description: >-
+      Effective status as presented to users (persistence view only, not part of the exchange
+      schema in 1.x). Equals PermitStatus, except a granted permit whose validity end has passed
+      is reported as "expired".
+    extensible: false
+    since: 1.1.0
+    values:
+      - {code: applied}
+      - {code: granted}
+      - {code: refused}
+      - {code: revoked}
+      - {code: expired, description: Granted permit whose validUntil (and validUntilTime, if given) has passed.}
+    sources: [S2]
+
+  ConditionCategory:
+    description: Category of a permit condition.
+    extensible: false
+    since: 1.1.0
+    values:
+      - {code: environmental}
+      - {code: safety}
+      - {code: other}
+    sources: [S2]
+
+datatypes:
+  Address:
+    description: Postal address.
+    attributes:
+      street: {type: string, multiplicity: "0..1", constraints: {maxLength: 200}}
+      postalCode: {type: string, constraints: {maxLength: 10}}
+      city: {type: string, constraints: {maxLength: 100}}
+
+  Applicant:
+    description: Person or organisation that applied for the permit.
+    since: 1.1.0
+    attributes:
+      name: {type: string, description: Name of the applicant (person or contact)., constraints: {maxLength: 200}}
+      organisation: {type: string, multiplicity: "0..1", description: Organisation the applicant acts for., constraints: {maxLength: 200}}
+      address: {type: Address}
+    sources: [S2]
+
+classes:
+  Authority:
+    description: Public body competent to issue permits.
+    identifier: {attribute: authorityId, strategy: uri, external: true}
+    history: {mode: audit}
+    nfr: {volume: 500, growth: stable}
+    attributes:
+      authorityId: {type: uri, description: Persistent URI of the authority., unique: true}
+      name: {type: string, constraints: {maxLength: 200}}
+      address: {type: Address}
+    sources: [S1]
+
+  Permit:
+    description: Official authorisation granted to an applicant for an activity at a site.
+    identifier: {attribute: permitId, strategy: uuid, external: true}
+    history: {mode: versioned, validTime: true, transactionTime: false, deletion: logical}
+    nfr:
+      volume: 2000000
+      growth: 200000/year
+      accessPaths: ["by permitId", "by reference (file number)", "by site within bounding box"]
+      classification: internal
+    attributes:
+      permitId: {type: uuid, description: Stable identifier of the permit., unique: true}
+      reference:
+        type: string
+        label: File number          # business term used by clerks (CR-7 item 1)
+        businessName: fileNumber    # planned technical name in 2.0.0, see D-003
+        description: >-
+          File number ("Aktenzeichen") used by the authority. Business term: file number.
+          Technical name stays "reference" in 1.x for exchange compatibility (D-003).
+        unique: true
+        constraints: {maxLength: 40}
+      status: {type: PermitStatus}
+      decisionDate: {type: date, multiplicity: "0..1"}
+      validUntil:
+        type: date
+        multiplicity: "0..1"
+        voidable: true
+        description: Last day of validity. Without validUntilTime the permit is valid until the end of this day.
+      validUntilTime:
+        type: time
+        multiplicity: "0..1"
+        since: 1.1.0
+        description: >-
+          Time of day on validUntil at which the permit expires, local time of the issuing authority
+          (no offset). Absent = end of day (same meaning as in 1.0.0). See D-006.
+        sources: [S2]
+      applicant:
+        type: Applicant
+        multiplicity: "0..1"     # mandatory for new permits via C-002; legacy permits may lack it (D-004)
+        since: 1.1.0
+        sources: [S2]
+      siteLocation:
+        type: geometry
+        constraints: {geometryType: Polygon, crs: "EPSG:4326"}
+      keywords:
+        type: string
+        multiplicity: "0..*"
+        constraints: {maxLength: 50}
+        deprecated: true
+        deprecatedSince: 1.1.0
+        removalPlanned: 2.0.0
+        description: Deprecated (CR-7 item 6). Do not populate; will be removed in 2.0.0 (D-007).
+    sources: [S1]
+
+  PermitCondition:
+    description: Obligation attached to a permit.
+    attributes:
+      text: {type: text}
+      dueDate: {type: date, multiplicity: "0..1"}
+      category:
+        type: ConditionCategory
+        multiplicity: "0..1"     # mandatory for new conditions via C-004; legacy conditions uncategorised
+        since: 1.1.0
+        sources: [S2]
+
+associations:
+  - name: PermitIssuedBy
+    description: The authority that issued the permit.
+    kind: reference
+    from: {class: Permit, role: permits, multiplicity: "0..*"}
+    to: {class: Authority, role: issuer, multiplicity: "1"}
+  - name: PermitConditions
+    kind: composition
+    from: {class: Permit, role: permit, multiplicity: "1"}
+    to: {class: PermitCondition, role: conditions, multiplicity: "0..*"}
+    ordered: true
+
+# createdAt / goLive(1.1.0) in C-002, C-004, C-005 refer to the persistence-only column created_at
+# (not part of the exchange schema) and the date migrate-1.0.0-to-1.1.0.sql is run (D-004).
+constraints:
+  - id: C-001
+    appliesTo: Permit
+    description: validUntil must not be before decisionDate.
+    expression: "validUntil >= decisionDate"
+    sources: [S1]
+  - id: C-002
+    appliesTo: Permit
+    description: >-
+      Every permit created from the 1.1.0 go-live onwards must have an applicant. Permits created
+      before go-live may have no applicant (unknown for part of the ~2 million legacy permits).
+    expression: "createdAt >= goLive(1.1.0) implies applicant <> null"
+    enforcement: on insert (persistence trigger); not expressible in the 1.x exchange schema
+    since: 1.1.0
+    sources: [S2]
+  - id: C-003
+    appliesTo: Permit
+    description: validUntilTime may only be given if validUntil is given.
+    expression: "validUntilTime <> null implies validUntil <> null"
+    since: 1.1.0
+    sources: [S2]
+  - id: C-004
+    appliesTo: PermitCondition
+    description: Every condition created from the 1.1.0 go-live onwards must have a category.
+    expression: "createdAt >= goLive(1.1.0) implies category <> null"
+    enforcement: on insert (persistence trigger); not expressible in the 1.x exchange schema
+    since: 1.1.0
+    sources: [S2]
+  - id: C-005
+    appliesTo: Permit
+    description: keywords must not be populated for new permits (deprecated).
+    expression: "createdAt >= goLive(1.1.0) implies keywords->isEmpty()"
+    enforcement: advisory (application level)
+    since: 1.1.0
+    sources: [S2]

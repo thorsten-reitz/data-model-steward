@@ -1,0 +1,109 @@
+{
+  "expectations": [
+    {
+      "text": "A canonical model file exists separate from the generated JSON Schema",
+      "passed": true,
+      "evidence": "with_skill/outputs/datamodel/model.yaml is the canonical model; the JSON Schema is generated separately at datamodel/exports/draft/schema.json (response.md: 'Both schemas are now generated from that one file')."
+    },
+    {
+      "text": "Position is modelled as a value type without its own identity (a datatype, or explicitly marked as an embedded value without a key)",
+      "passed": true,
+      "evidence": "model.yaml places Position under the top-level `datatypes:` section (not `classes:`), with attributes lat/lon/altitude and no identifier; response.md table: 'Position | value type'."
+    },
+    {
+      "text": "Pollutant is modelled as an extensible or externally governed code list, not a closed enum or an undocumented plain string",
+      "passed": true,
+      "evidence": "model.yaml `enumerations: Pollutant: extensible: true` with a `vocabulary:` block (uri http://dd.eionet.europa.eu/vocabulary/aq/pollutant, retrieved 2026-11-23, subset: true) and six coded values with URIs."
+    },
+    {
+      "text": "The station kind is modelled as a closed enumeration with traffic, industrial and background",
+      "passed": true,
+      "evidence": "model.yaml `StationKind: extensible: false` with values traffic, industrial, background; schema.json has enum [traffic, industrial, background]; generated XSD keeps xs:enumeration."
+    },
+    {
+      "text": "The meaning of the integer validity and verification codes is flagged as ambiguous",
+      "passed": true,
+      "evidence": "response.md item 4: '`validity` and `verification` are bare `xs:int` with no named code list. They look like the EEA AQD flags, but the XSD doesn't say so (A-004).'"
+    },
+    {
+      "text": "The missing coordinate reference system for lat/lon is flagged",
+      "passed": true,
+      "evidence": "response.md item 7: 'Position has no coordinate reference system. Lat/lon have no stated CRS (I assumed WGS 84)'. model.yaml Position: 'CRS is not stated in S1; WGS 84 (EPSG:4326) decimal degrees assumed (A-005)'."
+    },
+    {
+      "text": "Identifier issues are flagged (xs:ID values only unique within one document, and/or overlap of id and stationCode)",
+      "passed": true,
+      "evidence": "response.md item 1: '`@id` is `xs:ID`: it is unique only within one document ... `stationCode` has no uniqueness rule.' Model: Station identifier {attribute: stationCode}; id described as 'Only unique within one delivery'."
+    },
+    {
+      "text": "The observation volume (roughly 21 million per year: 400 x 6 x 24 x 365) is recorded in the canonical model, not only in prose",
+      "passed": true,
+      "evidence": "model.yaml Observation `nfr: volume: 21000000/year`, `growth: \"~57,600 per day (400 stations x 6 pollutants x 24 hours), ~21 M per year\"`, plus accessPaths."
+    },
+    {
+      "text": "The high observation volume leads to an API design note (e.g. observations as a separate, paginated resource rather than nested in station documents)",
+      "passed": true,
+      "evidence": "response.md: 'That doesn't change the logical model, but the API should: page time series, with a query by sampling point (or station + pollutant) and time range; store observations partitioned by time; upsert on (samplingPoint, begin).' Model nfr notes: 'API must page time series'. Weaker than without_skill: it does not explicitly say to split observations out of nested station documents for reads."
+    },
+    {
+      "text": "The generated JSON Schema is a valid JSON Schema and allows null for the observation value",
+      "passed": true,
+      "evidence": "Ran jsonschema Draft202012Validator.check_schema on exports/draft/schema.json: OK. Instance with observation value null: 0 errors (value is anyOf number/null)."
+    },
+    {
+      "text": "The JSON Schema keeps the observation value required but nullable, matching the XSD where the element is mandatory but nillable",
+      "passed": true,
+      "evidence": "schema.json Observation required: [begin, end, value, validity, verification], value anyOf number/null. Tested: value=null valid; value key removed gives \"'value' is a required property\"."
+    },
+    {
+      "text": "An XSD generated from the canonical model accepts the same documents as the original 2.1 XSD: a sample delivery valid against observations.xsd also validates against the generated XSD (checked with lxml)",
+      "passed": true,
+      "evidence": "lxml (python -I): examples/sample-delivery.xml validates against the original observations.xsd (True) and the generated exports/draft/schema.xsd (True); a self-written minimal doc (no altitude, nil value, validity 0, verification 7, offset-less dateTime, pollutant 'weird') is also valid in both. CAVEAT: the generated XSD adds lat/lon minInclusive/maxInclusive, so a doc with lat=95 passes the original but fails the generated XSD (verified). This is disclosed in response.md (D-002: 'a document with lat = 95 passed 2.1 but fails the generated XSD'). 'Accepts the same documents' is therefore not strictly true; passed on the specified sample-delivery check."
+    },
+    {
+      "text": "The pollutant code list is linked to a named standard vocabulary (e.g. the EEA/Eionet air quality pollutant vocabulary) with its register URI and a snapshot date or version, or reusing such a vocabulary is recommended to the user with the reason",
+      "passed": true,
+      "evidence": "model.yaml Pollutant `vocabulary: uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant, name: AQD - Air Quality Pollutants, publisher: European Environment Agency (Eionet Data Dictionary), version: null, retrieved: 2026-11-23`, with per-value URIs (4 marked unverified). Propagated as x-vocabulary in schema.json."
+    }
+  ],
+  "summary": {
+    "passed": 13,
+    "failed": 0,
+    "total": 13,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "executor_duration_seconds": 460.9,
+    "total_duration_seconds": 460.9
+  },
+  "claims": [
+    {
+      "claim": "The generated XSD gives the same verdict as the original except for the lat/lon range",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Reproduced the sample and lat=95 cases with lxml."
+    },
+    {
+      "claim": "The PM10/O3/SO2/CO URIs are unverified",
+      "type": "factual",
+      "verified": true,
+      "evidence": "model.yaml notes mark them 'not verified on the register'."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "An XSD generated from the canonical model accepts the same documents as the original 2.1 XSD: a sample delivery valid against observations.xsd also validates against the generated XSD (checked with lxml)",
+        "reason": "A single valid sample cannot detect tightenings. with_skill's generated XSD adds lat/lon range facets and rejects a lat=95 document the original accepts, yet still passes. Add edge-case documents (out-of-range lat, missing offset, unknown codes, nil altitude) or require that any tightening be explicitly disclosed."
+      },
+      {
+        "assertion": "The generated JSON Schema is a valid JSON Schema and allows null for the observation value",
+        "reason": "Both runs pass trivially, since a nullable value is the obvious mapping of nillable. Together with the 'required but nullable' assertion this is largely redundant."
+      },
+      {
+        "reason": "No assertion checks whether the JSON Schema enforces assumed, unconfirmed code lists. without_skill enforces validity/verification enums in JSON (rejecting 2.1-valid data), while with_skill keeps them open. This meaningful design difference is not graded."
+      }
+    ],
+    "overall": "Assertions 4-7, 10 and 11 do not discriminate (both runs pass). The discriminating ones are Position as value type, pollutant code list, volume in the model, and vocabulary link."
+  }
+}

@@ -7,7 +7,7 @@ examples of what the skill produces, not as reference models.
 ## Layout
 
 ```
-iteration-1/
+iteration-N/
 ├── benchmark.md / benchmark.json     # pass rates, time and tokens, with analyst notes
 └── <case>/
     ├── eval_metadata.json            # prompt and assertions
@@ -38,5 +38,40 @@ Known issues found in this iteration (to address in iteration 2):
 Since iteration 1, the assertions have been reworded and extended (`data-model-steward/evals/*/graders`).
 `dmtool` now supports XML attributes, integer code lists, consumer-aware `diff`
 (strict/tolerant, projection), constraint `scope`/`enforcement`, `init` and `release`, and
-multilingual documentation. The GiST index gap and the SQL test are still open. These runs
-have not been repeated with the new version yet.
+multilingual documentation. The GiST index gap and the SQL test are still open.
+
+## Iteration 2 (2026-11-23): summary
+
+The skill now includes `migrate`, `docs` and vocabulary reuse. The assertions are those of
+iteration 2 (14/14/13), and both configurations were re-run.
+
+| Case | With skill | Without skill |
+|---|---|---|
+| new-model-from-docs | 14/14 | 11/14 |
+| amend-released-model | 14/14 | 12/14 |
+| reverse-engineer-xsd | 13/13 | 9/13 |
+| mean time / tokens | 350 s / 130k | 354 s / 103k |
+
+The analyst notes are in `iteration-2/benchmark.md`. In short:
+- **Discrimination:** the assertions now separate the runs. Part of the gap still comes
+  from checks that reward the skill's method (single canonical model, volumes in the
+  model, vocabulary check).
+- **Where the baseline was stronger:**
+  - tree cadastre: trigger-filled location history, business rules in the exchange
+    schema, and a full legacy migration script;
+  - XSD: a clearer note on the API read model.
+- **Issues found:**
+  - `projection` was read only from the old release;
+  - rules on brand-new attributes were reported as breaking;
+  - the draft version stayed at 1.0.0, so previews carried the old `$id`;
+  - the XSD compatibility check used only one sample;
+  - the location-history check accepted a table without capture.
+
+Fixed since iteration 2, but not yet re-run:
+- `dmtool` reads `projection` from either version, and rules that only touch new
+  attributes count as minor.
+- The skill now asks for the draft version, hand-written triggers and `if`/`then` rules,
+  and edge-case XSD tests.
+- The assertions were sharpened, and new ones check exchange-schema business rules,
+  additive-only migrations, and code lists that are only assumed. There are now 15, 15
+  and 13 assertions.

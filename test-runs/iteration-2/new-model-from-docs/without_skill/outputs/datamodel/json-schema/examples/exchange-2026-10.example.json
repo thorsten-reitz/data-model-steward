@@ -1,0 +1,140 @@
+{
+  "schemaVersion": "0.1.0",
+  "header": {
+    "fileId": "6f1c2a7e-3b0d-4e55-9a51-0c2f6b7d8e90",
+    "sender": {
+      "municipalityCode": "05315000",
+      "organisation": "City Parks Department - Tree Cadastre"
+    },
+    "periodStart": "2026-10-01",
+    "periodEnd": "2026-10-31",
+    "generatedAt": "2026-11-01T02:15:00+01:00",
+    "crs": "EPSG:25832",
+    "counts": { "trees": 3, "inspections": 2, "measures": 2 }
+  },
+  "codeLists": {
+    "defectTypes": [
+      { "code": "DEADWOOD", "label": "Deadwood" },
+      { "code": "CAVITY", "label": "Cavity" },
+      { "code": "ROOT_DAMAGE", "label": "Root damage" }
+    ],
+    "measureTypes": [
+      { "code": "PRUNING", "label": "Pruning" },
+      { "code": "FELLING", "label": "Felling" }
+    ],
+    "fellingReasons": [
+      { "code": "TRAFFIC_SAFETY", "label": "Traffic safety" }
+    ],
+    "vitalityClasses": [
+      { "code": 1, "label": "very vital" },
+      { "code": 2, "label": "slightly impaired" },
+      { "code": 3, "label": "clearly impaired" },
+      { "code": 4, "label": "severely impaired" },
+      { "code": 5, "label": "dying / dead" }
+    ]
+  },
+  "trees": [
+    {
+      "treeId": "0b6f3d5c-1a2b-4c3d-8e9f-001122334455",
+      "treeNumber": 10234,
+      "species": { "code": "ACPL", "botanicalName": "Acer platanoides" },
+      "plantingYear": 1987,
+      "location": { "easting": 356123.45, "northing": 5645321.12 },
+      "locationCorrectedAt": "2026-10-12T09:41:07+02:00",
+      "spatialUnit": { "type": "street_segment", "code": "STR-0815-03", "name": "Hauptstraße" },
+      "status": "standing",
+      "lastModified": "2026-10-12T09:41:07+02:00"
+    },
+    {
+      "treeId": "1c7a4e6d-2b3c-4d4e-9f00-112233445566",
+      "treeNumber": 10235,
+      "species": { "code": "TICO", "botanicalName": "Tilia cordata" },
+      "plantingYear": null,
+      "location": { "easting": 356140.00, "northing": 5645330.50 },
+      "locationCorrectedAt": null,
+      "spatialUnit": { "type": "street_segment", "code": "STR-0815-03", "name": "Hauptstraße" },
+      "status": "felled",
+      "felling": {
+        "date": "2026-10-20",
+        "reasonCode": "TRAFFIC_SAFETY",
+        "compensationRequired": 1,
+        "replacedByTreeNumbers": [1000001]
+      },
+      "lastModified": "2026-10-20T15:02:11+02:00"
+    },
+    {
+      "treeId": "2d8b5f7e-3c4d-4e5f-a011-223344556677",
+      "treeNumber": 1000001,
+      "species": { "code": "TICO_GR", "botanicalName": "Tilia cordata 'Greenspire'" },
+      "plantingYear": 2026,
+      "location": { "easting": 356141.20, "northing": 5645331.00 },
+      "locationCorrectedAt": null,
+      "spatialUnit": { "type": "street_segment", "code": "STR-0815-03", "name": "Hauptstraße" },
+      "status": "standing",
+      "lastModified": "2026-10-28T11:20:00+01:00"
+    }
+  ],
+  "inspections": [
+    {
+      "inspectionId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "treeId": "0b6f3d5c-1a2b-4c3d-8e9f-001122334455",
+      "treeNumber": 10234,
+      "inspectionDate": "2026-10-12",
+      "inspectorCode": "INS-007",
+      "trunkCircumferenceCm": 182,
+      "crownDiameterM": 11.5,
+      "heightM": 17.0,
+      "vitalityClass": 2,
+      "defects": [
+        { "code": "DEADWOOD", "severity": "medium" }
+      ],
+      "lastModified": "2026-10-12T18:05:33+02:00"
+    },
+    {
+      "inspectionId": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "treeId": "1c7a4e6d-2b3c-4d4e-9f00-112233445566",
+      "treeNumber": 10235,
+      "inspectionDate": "2026-10-02",
+      "inspectorCode": "INS-007",
+      "trunkCircumferenceCm": 240,
+      "crownDiameterM": 9.0,
+      "heightM": 15.5,
+      "vitalityClass": 5,
+      "defects": [
+        { "code": "CAVITY", "severity": "high" },
+        { "code": "ROOT_DAMAGE", "severity": "high" }
+      ],
+      "lastModified": "2026-10-02T17:44:00+02:00"
+    }
+  ],
+  "measures": [
+    {
+      "measureId": "c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e7f",
+      "inspectionId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "treeId": "0b6f3d5c-1a2b-4c3d-8e9f-001122334455",
+      "treeNumber": 10234,
+      "measureTypeCode": "PRUNING",
+      "orderedOn": "2026-10-12",
+      "dueDate": "2027-02-28",
+      "priority": "normal",
+      "status": "ordered",
+      "completedOn": null,
+      "contractorName": null,
+      "lastModified": "2026-10-12T18:05:33+02:00"
+    },
+    {
+      "measureId": "d4e5f6a7-b8c9-4d0e-9f2a-3b4c5d6e7f80",
+      "inspectionId": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "treeId": "1c7a4e6d-2b3c-4d4e-9f00-112233445566",
+      "treeNumber": 10235,
+      "measureTypeCode": "FELLING",
+      "orderedOn": "2026-10-02",
+      "dueDate": "2026-10-31",
+      "priority": "immediate",
+      "status": "done",
+      "completedOn": "2026-10-20",
+      "contractorName": "Baumpflege Beispiel GmbH",
+      "lastModified": "2026-10-20T15:02:11+02:00"
+    }
+  ]
+}

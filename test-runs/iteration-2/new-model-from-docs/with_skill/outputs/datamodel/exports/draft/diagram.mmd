@@ -1,0 +1,134 @@
+classDiagram
+  class TreeStatus {
+    <<enumeration>>
+    standing
+    felled
+  }
+  class FellingReason {
+    <<enumeration>>
+    diseaseOrDecay
+    dead
+    trafficSafety
+    stormDamage
+    construction
+    other
+  }
+  class VitalityClass {
+    <<enumeration>>
+    1
+    2
+    3
+    4
+    5
+  }
+  class DefectType {
+    <<enumeration>>
+    deadwood
+    cavity
+    rootDamage
+  }
+  class DefectSeverity {
+    <<enumeration>>
+    low
+    medium
+    high
+  }
+  class MeasureType {
+    <<enumeration>>
+    pruning
+    felling
+    cabling
+  }
+  class MeasurePriority {
+    <<enumeration>>
+    immediate
+    high
+    normal
+    low
+  }
+  class MeasureStatus {
+    <<enumeration>>
+    ordered
+    done
+    cancelled
+  }
+  class SiteType {
+    <<enumeration>>
+    park
+    streetSegment
+  }
+  class Tree {
+    +uuid id
+    +integer treeNumber [0..1]
+    +geometry location
+    +integer plantingYear [0..1]
+    +TreeStatus status
+    +date fellingDate [0..1]
+    +FellingReason fellingReason [0..1]
+    +text remark [0..1]
+  }
+  class TreeLocationCorrection {
+    +dateTime correctedAt
+    +geometry previousLocation
+    +text reason [0..1]
+  }
+  class Species {
+    +uuid id
+    +string botanicalName
+    +string commonName [0..1]
+    +long gbifTaxonKey [0..1]
+    +boolean active
+  }
+  class Site {
+    +uuid id
+    +SiteType siteType
+    +string name
+    +string streetSegmentKey [0..1]
+    +geometry area [0..1]
+  }
+  class StaffMember {
+    +uuid id
+    +string name
+    +boolean active
+  }
+  class Contractor {
+    +uuid id
+    +string name
+    +boolean active
+  }
+  class Inspection {
+    +uuid id
+    +date inspectionDate
+    +integer trunkCircumference [0..1]
+    +decimal crownDiameter [0..1]
+    +decimal height [0..1]
+    +VitalityClass vitalityClass [0..1]
+    +text remark [0..1]
+  }
+  class InspectionDefect {
+    +DefectType defectType
+    +DefectSeverity severity
+    +string remark [0..1]
+  }
+  class Measure {
+    +uuid id
+    +MeasureType measureType
+    +date orderDate
+    +date dueDate
+    +MeasurePriority priority
+    +MeasureStatus status
+    +date completionDate [0..1]
+    +text description [0..1]
+  }
+  Tree "0..*" --> "1" Species : species
+  Tree "0..*" --> "1" Site : site
+  Tree "0..*" --> "0..1" Tree : replacedTree
+  Tree "1" *-- "0..*" TreeLocationCorrection : locationCorrections
+  TreeLocationCorrection "0..*" --> "0..1" StaffMember : correctedBy
+  Inspection "0..*" --> "1" Tree : tree
+  Inspection "0..*" --> "1" StaffMember : inspector
+  Inspection "1" *-- "0..*" InspectionDefect : defects
+  Measure "0..*" --> "1" Tree : tree
+  Measure "0..*" --> "0..1" Inspection : inspection
+  Measure "0..*" --> "0..1" StaffMember : orderedBy
+  Measure "0..*" --> "0..1" Contractor : contractor

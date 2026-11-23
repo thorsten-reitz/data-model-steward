@@ -1,0 +1,41 @@
+{
+  "stations": [
+    {
+      "id": "ST_DEBE010",
+      "stationCode": "DEBE010",
+      "name": "Example Street",
+      "operator": "Example Environment Agency",
+      "position": {"lat": 52.52, "lon": 13.405, "altitude": 34},
+      "stationType": "traffic",
+      "samplingPoints": [
+        {
+          "id": "SPO_DEBE010_NO2",
+          "pollutant": "NO2",
+          "unit": "ug.m-3",
+          "observations": [
+            {"begin": "2026-11-22T00:00:00+01:00", "end": "2026-11-22T01:00:00+01:00", "value": 41.3, "validity": 1, "verification": 3},
+            {"begin": "2026-11-22T01:00:00+01:00", "end": "2026-11-22T02:00:00+01:00", "value": null, "validity": -1, "verification": 3}
+          ]
+        },
+        {"id": "SPO_DEBE010_PM10", "pollutant": "PM10", "unit": "ug.m-3"}
+      ]
+    },
+    {
+      "id": "ST_DEBE032",
+      "stationCode": "DEBE032",
+      "name": "Example Forest",
+      "position": {"lat": 52.473, "lon": 13.225, "altitude": null},
+      "stationType": "background",
+      "samplingPoints": [
+        {
+          "id": "SPO_DEBE032_O3",
+          "pollutant": "O3",
+          "unit": "ug.m-3",
+          "observations": [
+            {"begin": "2026-11-22T00:00:00Z", "end": "2026-11-22T01:00:00Z", "value": 12.0, "validity": 1, "verification": 3}
+          ]
+        }
+      ]
+    }
+  ]
+}

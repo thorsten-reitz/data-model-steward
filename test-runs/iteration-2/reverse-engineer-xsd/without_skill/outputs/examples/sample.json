@@ -1,0 +1,71 @@
+{
+  "stations": [
+    {
+      "id": "ST_DEBE065",
+      "stationCode": "DEBE065",
+      "name": "Berlin Frankfurter Allee",
+      "operator": "Senatsverwaltung Berlin",
+      "position": {
+        "lat": 52.514072,
+        "lon": 13.469931,
+        "altitude": 38
+      },
+      "stationType": "traffic",
+      "samplingPoints": [
+        {
+          "id": "SP_DEBE065_NO2",
+          "pollutant": "NO2",
+          "unit": "ug.m-3",
+          "observations": [
+            {
+              "begin": "2026-11-22T00:00:00+01:00",
+              "end": "2026-11-22T01:00:00+01:00",
+              "value": 41.3,
+              "validity": 1,
+              "verification": 3
+            },
+            {
+              "begin": "2026-11-22T01:00:00+01:00",
+              "end": "2026-11-22T02:00:00+01:00",
+              "value": null,
+              "validity": -99,
+              "verification": 3
+            }
+          ]
+        },
+        {
+          "id": "SP_DEBE065_PM10",
+          "pollutant": "PM10",
+          "unit": "ug.m-3",
+          "observations": [
+            {
+              "begin": "2026-11-22T00:00:00+01:00",
+              "end": "2026-11-22T01:00:00+01:00",
+              "value": 18.0,
+              "validity": 1,
+              "verification": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ST_DEBB021",
+      "stationCode": "DEBB021",
+      "name": "Potsdam-Zentrum",
+      "position": {
+        "lat": 52.398,
+        "lon": 13.0615,
+        "altitude": null
+      },
+      "stationType": "background",
+      "samplingPoints": [
+        {
+          "id": "SP_DEBB021_O3",
+          "pollutant": "O3",
+          "unit": "ug.m-3"
+        }
+      ]
+    }
+  ]
+}

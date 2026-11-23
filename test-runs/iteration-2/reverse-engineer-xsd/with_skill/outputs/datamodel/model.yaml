@@ -1,0 +1,367 @@
+# Canonical, implementation-neutral data model. Format: references/model-format.md
+# Check with: dmtool.py validate model.yaml
+#
+# Reverse-engineered from the partner exchange schema observations.xsd v2.1 (S1).
+# Goal: the generated XSD stays wire-compatible with S1; the JSON Schema serves the REST API.
+# Elements marked `status: proposed` are working assumptions awaiting review (see open-questions.md).
+
+model:
+  name: AirQualityObservations
+  title: Air Quality Observations
+  description: >-
+    Hourly air quality measurements delivered by partner organisations: monitoring stations,
+    their sampling points (one pollutant each) and the time series of observations.
+  namespace: http://example.org/airquality/2.1     # kept from S1 so the generated XSD is wire-compatible (D-001)
+  prefix: aq
+  version: 0.1.0
+  status: draft
+  purposes: [exchange, api]
+  targets: [xsd, jsonschema]
+  languages:
+    identifiers: en
+    documentation: [en]
+  compatibility:
+    consumers: strict          # partners validate against XSD 2.1 (A-001)
+    projection: false
+  standards:
+    - EEA Air Quality e-Reporting (AQD) vocabularies (S2) — referenced by S1 for pollutant codes
+  sources: [S1, S2, S3]
+  decisions: [D-001, D-002, D-003, D-004]
+  exportOptions:
+    jsonschema: {root: ObservationCollection, closed: true}
+
+enumerations:
+  StationKind:
+    description: >-
+      Classification of a station by the dominant emission sources influencing it.
+    extensible: false
+    values:
+      - code: traffic
+        label: Traffic
+        description: Station whose pollution level is determined predominantly by emissions from nearby traffic.
+      - code: industrial
+        label: Industrial
+        description: Station whose pollution level is determined predominantly by nearby industrial sources.
+      - code: background
+        label: Background
+        description: Station whose pollution level is not dominated by a single source or street.
+    notes: >-
+      Same three values as the EEA station classification vocabulary (aq/stationclassification);
+      adopting it with URIs is proposed in Q-006, not done.
+    sources: [S1]
+
+  Pollutant:
+    description: >-
+      Air pollutant measured at a sampling point. S1 says the value is a "code from the EEA pollutant
+      vocabulary, e.g. NO2, PM10, O3", i.e. the vocabulary's notation, not its numeric identifier (Q-002).
+    extensible: true
+    vocabulary:
+      uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant
+      name: AQD - Air Quality Pollutants
+      publisher: European Environment Agency (Eionet Data Dictionary)
+      version: null
+      retrieved: 2026-11-23
+      licence: unknown (to be checked on the register)
+      subset: true
+      represent: code
+    values:
+      - code: NO2
+        label: Nitrogen dioxide (air)
+        uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant/8
+      - code: PM10
+        label: Particulate matter < 10 µm (aerosol)
+        uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant/5
+        notes: URI from prior knowledge, not verified on the register (register unreachable 2026-11-23).
+      - code: PM2.5
+        label: Particulate matter < 2.5 µm (aerosol)
+        uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant/6001
+      - code: O3
+        label: Ozone (air)
+        uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant/7
+        notes: URI from prior knowledge, not verified on the register.
+      - code: SO2
+        label: Sulphur dioxide (air)
+        uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant/1
+        notes: URI from prior knowledge, not verified on the register.
+      - code: CO
+        label: Carbon monoxide (air)
+        uri: http://dd.eionet.europa.eu/vocabulary/aq/pollutant/10
+        notes: URI from prior knowledge, not verified on the register.
+    notes: >-
+      The six values are an assumption (A-003): the brief says "6 pollutants" without naming them.
+      The XSD names the vocabulary, so referencing it is S1's choice, not a new adoption; the snapshot
+      values and represent=code (notation) still need confirmation (Q-002).
+    status: proposed
+    sources: [S1, S2]
+    decisions: [D-003]
+
+  ConcentrationUnit:
+    description: Unit of measure of the observed values at a sampling point.
+    extensible: true
+    values:
+      - code: ug.m-3
+        label: microgram per cubic metre
+      - code: mg.m-3
+        label: milligram per cubic metre
+    notes: >-
+      S1 types unit as a free string. Candidate code list: EEA uom/concentration
+      (http://dd.eionet.europa.eu/vocabulary/uom/concentration) — values not verified (register
+      unreachable), so no vocabulary block yet (Q-003).
+    status: proposed
+    sources: [S1]
+
+  ObservationValidity:
+    description: Validity flag of an observation (EEA AQD observation validity).
+    extensible: true          # S1 types it as unrestricted xs:int; kept open for wire compatibility
+    codeType: integer
+    vocabulary:
+      uri: http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity
+      name: AQD - Observation Validity
+      publisher: European Environment Agency (Eionet Data Dictionary)
+      version: null
+      retrieved: 2026-11-23
+      licence: unknown (to be checked on the register)
+      subset: false
+      valueUriTemplate: "http://dd.eionet.europa.eu/vocabulary/aq/observationvalidity/{code}"
+      represent: code
+    values:
+      - {code: -99, label: "Not valid due to station maintenance or calibration"}
+      - {code: -1, label: Not valid}
+      - {code: 1, label: Valid}
+      - {code: 2, label: "Valid, but below detection limit"}
+      - {code: 3, label: "Valid, but below detection limit and number replaced by 0.5*detection limit"}
+      - {code: 4, label: Valid (Ozone only) using CCQM.O3.2019}
+    notes: >-
+      S1 does not say which code list validity uses; EEA AQD is assumed (A-004). Labels of -99, 2 and 3
+      partly from prior knowledge (search results truncated) — check on the register.
+    status: proposed
+    sources: [S1, S2]
+    decisions: [D-003]
+
+  ObservationVerification:
+    description: Verification status of an observation (EEA AQD observation verification).
+    extensible: true
+    codeType: integer
+    vocabulary:
+      uri: http://dd.eionet.europa.eu/vocabulary/aq/observationverification
+      name: AQD - Observation Verification
+      publisher: European Environment Agency (Eionet Data Dictionary)
+      version: null
+      retrieved: 2026-11-23
+      licence: unknown (to be checked on the register)
+      subset: false
+      valueUriTemplate: "http://dd.eionet.europa.eu/vocabulary/aq/observationverification/{code}"
+      represent: code
+    values:
+      - {code: 1, label: Verified}
+      - {code: 2, label: Preliminary verified}
+      - {code: 3, label: Not verified}
+    notes: S1 does not name the code list; EEA AQD is assumed (A-004).
+    status: proposed
+    sources: [S1, S2]
+    decisions: [D-003]
+
+datatypes:
+  Position:
+    description: >-
+      Geographic position of a station. CRS is not stated in S1; WGS 84 (EPSG:4326) decimal degrees
+      assumed (A-005). Kept as lat/lon/altitude rather than a geometry for wire compatibility (D-002).
+    attributes:
+      lat:
+        type: decimal
+        description: Latitude in decimal degrees (assumed WGS 84).
+        constraints: {min: -90, max: 90}
+      lon:
+        type: decimal
+        description: Longitude in decimal degrees (assumed WGS 84).
+        constraints: {min: -180, max: 180}
+      altitude:
+        type: decimal
+        multiplicity: "0..1"
+        voidable: true
+        description: >-
+          Altitude of the station. Unit and vertical datum not stated in S1; metres above mean sea level
+          assumed (A-005). S1 allows both omission and xsi:nil — meaning of the difference unclear (Q-004).
+        constraints: {unit: m}
+    sources: [S1]
+    decisions: [D-002]
+
+classes:
+  ObservationCollection:
+    description: >-
+      One delivery from a partner: a set of stations with their sampling points and observations.
+      Root element of the exchange document.
+    history: {mode: none}
+    nfr:
+      volume: "one per partner delivery (frequency unknown, Q-008)"
+      notes: >-
+        A full day of all stations is ~57,600 observations; a full-history document would be far
+        larger — see Q-008 on delivery granularity.
+    attributes: {}
+    sources: [S1]
+
+  Station:
+    description: Air quality monitoring station at a fixed location.
+    identifier: {attribute: stationCode, strategy: natural, external: true}
+    history: {mode: audit, deletion: logical}
+    nfr:
+      volume: 400
+      growth: stable
+      accessPaths: ["by stationCode", "all stations (map)", "by stationType"]
+    attributes:
+      id:
+        type: string
+        description: >-
+          Document-local identifier (xs:ID) of the station element. Only unique within one delivery
+          and must not start with a digit; not to be used as a persistent key (Q-001).
+        xml: {attribute: true, type: "xs:ID"}
+      stationCode:
+        type: string
+        unique: true
+        description: >-
+          Code of the station, assumed stable across deliveries and used as the persistent identifier
+          (A-002). Possibly the EEA/national station code (e.g. "DEBE010") — to confirm.
+      name:
+        type: string
+        description: Name of the station.
+      operator:
+        type: string
+        multiplicity: "0..1"
+        description: Organisation operating the station (free text in S1).
+      position:
+        type: Position
+        description: Location of the station.
+      stationType:
+        type: StationKind
+        description: Station classification by dominant emission source.
+    sources: [S1]
+
+  SamplingPoint:
+    description: >-
+      Measurement configuration at a station for one pollutant, delivering one time series of
+      observations in one unit.
+    identifier: {attribute: id, strategy: natural, external: false}
+    history: {mode: audit, deletion: logical}
+    nfr:
+      volume: 2400
+      growth: stable
+      accessPaths: ["by station", "by station and pollutant", "by pollutant"]
+    attributes:
+      id:
+        type: string
+        description: >-
+          Identifier (xs:ID) of the sampling point. S1 only makes it unique within one document; whether
+          it is stable across deliveries is unknown (Q-001). Used as identifier provisionally.
+        xml: {attribute: true, type: "xs:ID"}
+      pollutant:
+        type: Pollutant
+        description: Pollutant measured, as the notation code of the EEA pollutant vocabulary (e.g. NO2).
+      unit:
+        type: ConcentrationUnit
+        description: Unit of all observation values of this sampling point.
+    sources: [S1]
+
+  Observation:
+    description: >-
+      One aggregated measurement result of a sampling point for a time interval (normally one hour).
+    history: {mode: audit, deletion: physical}
+    nfr:
+      volume: 21000000/year
+      growth: "~57,600 per day (400 stations × 6 pollutants × 24 hours), ~21 M per year"
+      readWriteRatio: unknown
+      accessPaths:
+        - "by sampling point and time range"
+        - "by station, pollutant and time range"
+        - "latest value per sampling point (all stations)"
+      notes: >-
+        Physical design (not in the neutral model): time-partitioned storage, index on
+        (samplingPoint, begin); API must page time series. Re-deliveries with changed
+        verification flags are expected → upsert by (samplingPoint, begin).
+    attributes:
+      begin:
+        type: dateTime
+        description: Start of the averaging interval (inclusive). Must carry a UTC offset (C-003).
+      end:
+        type: dateTime
+        description: End of the averaging interval (exclusive assumed, A-006).
+      value:
+        type: float
+        voidable: true
+        description: >-
+          Measured value in the unit of the sampling point. xsi:nil when no value is available; the
+          reason should then be expressed by the validity flag (C-004).
+      validity:
+        type: ObservationValidity
+        description: Validity flag (EEA AQD observation validity code).
+      verification:
+        type: ObservationVerification
+        description: Verification status (EEA AQD observation verification code).
+    sources: [S1]
+
+associations:
+  - name: CollectionStations
+    description: Stations contained in a delivery.
+    kind: composition
+    from: {class: ObservationCollection, role: collection, multiplicity: "1"}
+    to: {class: Station, role: stations, multiplicity: "1..*", names: {xsd: station}}
+    sources: [S1]
+    decisions: [D-004]
+  - name: StationSamplingPoints
+    description: Sampling points operated at a station.
+    kind: composition
+    from: {class: Station, role: station, multiplicity: "1"}
+    to: {class: SamplingPoint, role: samplingPoints, multiplicity: "1..*", names: {xsd: sampling}}
+    sources: [S1]
+    decisions: [D-004]
+  - name: SamplingPointObservations
+    description: Time series of observations of a sampling point.
+    kind: composition
+    from: {class: SamplingPoint, role: samplingPoint, multiplicity: "1"}
+    to: {class: Observation, role: observations, multiplicity: "0..*", names: {xsd: observation}}
+    ordered: true
+    sources: [S1]
+    decisions: [D-004]
+
+constraints:
+  - id: C-001
+    appliesTo: Observation
+    description: The end of the interval must be after its begin.
+    expression: "end > begin"
+    enforcement: enforced
+    scope: all
+    sources: [S1]
+    status: proposed
+  - id: C-002
+    appliesTo: SamplingPoint
+    description: >-
+      Within one sampling point, at most one observation per interval begin (no duplicates or
+      overlapping intervals in one delivery).
+    expression: "unique(observations.begin)"
+    enforcement: warning
+    scope: all
+    status: proposed
+  - id: C-003
+    appliesTo: Observation
+    description: >-
+      begin and end must carry an explicit UTC offset (e.g. 2026-11-23T10:00:00+01:00). S1's
+      xs:dateTime also accepts local times without offset; such values are ambiguous.
+    expression: "hasTimezone(begin) and hasTimezone(end)"
+    enforcement: warning
+    scope: all
+    status: proposed
+  - id: C-004
+    appliesTo: Observation
+    description: >-
+      If value is nil, validity must be a "not valid" code (-1 or -99); if validity is 1–4, value
+      must not be nil.
+    expression: "value = nil implies validity in (-1, -99)"
+    enforcement: warning
+    scope: all
+    status: proposed
+  - id: C-005
+    appliesTo: Observation
+    description: Interval length is one hour for hourly data (end - begin = PT1H).
+    expression: "end - begin = PT1H"
+    enforcement: documented
+    scope: all
+    status: proposed

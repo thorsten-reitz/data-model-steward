@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/tree-cadastre/exchange/0.1.0/tree-exchange.schema.json",
+  "title": "Urban Tree Cadastre - Monthly Exchange File",
+  "description": "Monthly exchange file from the city parks department to the regional environmental agency. Contains a full snapshot of all trees plus all inspections and measures created or changed in the reporting period (delta, upsert by id). Coordinates are ETRS89 / UTM zone 32N (EPSG:25832). Contains no personal data: inspectors are identified only by a pseudonymous staff code. Draft 0.1.0 - see datamodel/ASSUMPTIONS.md (A-24..A-29).",
+  "type": "object",
+  "required": ["schemaVersion", "header", "trees", "inspections", "measures"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "description": "Version of this schema the file conforms to (semantic versioning).",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "header": { "$ref": "#/$defs/header" },
+    "codeLists": { "$ref": "#/$defs/codeLists" },
+    "trees": {
+      "description": "Full snapshot: every tree in the cadastre (standing, felled and voided).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/tree" }
+    },
+    "inspections": {
+      "description": "Inspections created or modified within the reporting period.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/inspection" }
+    },
+    "measures": {
+      "description": "Measures created or modified within the reporting period.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/measure" }
+    }
+  },
+
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "code": {
+      "description": "Code from a department-maintained code list (upper case, digits, underscore).",
+      "type": "string",
+      "pattern": "^[A-Z0-9_]{1,30}$"
+    },
+    "treeNumber": {
+      "description": "Stable public tree number (tag number). Legacy numbers are preserved.",
+      "type": "integer",
+      "minimum": 1
+    },
+
+    "header": {
+      "type": "object",
+      "required": ["fileId", "sender", "periodStart", "periodEnd", "generatedAt", "crs", "counts"],
+      "additionalProperties": false,
+      "properties": {
+        "fileId": { "$ref": "#/$defs/uuid" },
+        "sender": {
+          "type": "object",
+          "required": ["municipalityCode", "organisation"],
+          "additionalProperties": false,
+          "properties": {
+            "municipalityCode": {
+              "description": "Official municipality key (German AGS, 8 digits).",
+              "type": "string",
+              "pattern": "^[0-9]{8}$"
+            },
+            "organisation": { "type": "string", "minLength": 1, "maxLength": 200 }
+          }
+        },
+        "periodStart": { "$ref": "#/$defs/date", "description": "First day of the reporting period (inclusive)." },
+        "periodEnd":   { "$ref": "#/$defs/date", "description": "Last day of the reporting period (inclusive)." },
+        "generatedAt": { "$ref": "#/$defs/dateTime" },
+        "crs": {
+          "description": "Coordinate reference system of all coordinates in this file.",
+          "type": "string",
+          "const": "EPSG:25832"
+        },
+        "counts": {
+          "type": "object",
+          "required": ["trees", "inspections", "measures"],
+          "additionalProperties": false,
+          "properties": {
+            "trees":       { "type": "integer", "minimum": 0 },
+            "inspections": { "type": "integer", "minimum": 0 },
+            "measures":    { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+
+    "codeListEntry": {
+      "type": "object",
+      "required": ["code", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "code":  { "type": ["string", "integer"] },
+        "label": { "type": "string" }
+      }
+    },
+    "codeLists": {
+      "description": "Optional: labels for the codes used in this file, so the file is self-describing.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "defectTypes":     { "type": "array", "items": { "$ref": "#/$defs/codeListEntry" } },
+        "measureTypes":    { "type": "array", "items": { "$ref": "#/$defs/codeListEntry" } },
+        "fellingReasons":  { "type": "array", "items": { "$ref": "#/$defs/codeListEntry" } },
+        "vitalityClasses": { "type": "array", "items": { "$ref": "#/$defs/codeListEntry" } }
+      }
+    },
+
+    "location": {
+      "description": "Point in EPSG:25832, metres, 2 decimals (cm).",
+      "type": "object",
+      "required": ["easting", "northing"],
+      "additionalProperties": false,
+      "properties": {
+        "easting":  { "type": "number", "minimum": 160000, "maximum": 840000 },
+        "northing": { "type": "number", "minimum": 0, "maximum": 9400000 }
+      }
+    },
+
+    "tree": {
+      "type": "object",
+      "required": ["treeId", "treeNumber", "species", "plantingYear", "location",
+                   "spatialUnit", "status", "lastModified"],
+      "additionalProperties": false,
+      "properties": {
+        "treeId":     { "$ref": "#/$defs/uuid" },
+        "treeNumber": { "$ref": "#/$defs/treeNumber" },
+        "species": {
+          "type": "object",
+          "required": ["code", "botanicalName"],
+          "additionalProperties": false,
+          "properties": {
+            "code":          { "type": "string", "minLength": 1, "maxLength": 20 },
+            "botanicalName": { "type": "string", "minLength": 1, "maxLength": 150 }
+          }
+        },
+        "plantingYear": {
+          "description": "Year of planting; null if unknown.",
+          "type": ["integer", "null"],
+          "minimum": 1600,
+          "maximum": 2100
+        },
+        "location": { "$ref": "#/$defs/location" },
+        "locationCorrectedAt": {
+          "description": "Timestamp of the last location correction, if any.",
+          "oneOf": [ { "$ref": "#/$defs/dateTime" }, { "type": "null" } ]
+        },
+        "spatialUnit": {
+          "type": "object",
+          "required": ["type", "code", "name"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "enum": ["park", "street_segment"] },
+            "code": { "type": "string", "minLength": 1, "maxLength": 30 },
+            "name": { "type": "string", "minLength": 1, "maxLength": 150 }
+          }
+        },
+        "status": {
+          "description": "standing = living tree; felled = removed but kept for compensation tracking; void = record created in error (withdrawn).",
+          "enum": ["standing", "felled", "void"]
+        },
+        "felling": {
+          "description": "Present only for felled trees. date/reasonCode may be null for trees migrated from the legacy system.",
+          "type": "object",
+          "required": ["date", "reasonCode"],
+          "additionalProperties": false,
+          "properties": {
+            "date":       { "oneOf": [ { "$ref": "#/$defs/date" }, { "type": "null" } ] },
+            "reasonCode": { "oneOf": [ { "$ref": "#/$defs/code" }, { "type": "null" } ] },
+            "compensationRequired": { "type": ["integer", "null"], "minimum": 0 },
+            "replacedByTreeNumbers": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/treeNumber" },
+              "uniqueItems": true
+            }
+          }
+        },
+        "lastModified": { "$ref": "#/$defs/dateTime" }
+      },
+      "allOf": [
+        {
+          "if":   { "properties": { "status": { "const": "felled" } } },
+          "then": { "required": ["felling"] },
+          "else": { "not": { "required": ["felling"] } }
+        }
+      ]
+    },
+
+    "defect": {
+      "type": "object",
+      "required": ["code", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "severity": {
+          "description": "null only for defects migrated from the legacy system (no severity recorded there).",
+          "enum": ["low", "medium", "high", null]
+        }
+      }
+    },
+
+    "inspection": {
+      "type": "object",
+      "required": ["inspectionId", "treeId", "treeNumber", "inspectionDate",
+                   "vitalityClass", "defects", "lastModified"],
+      "additionalProperties": false,
+      "properties": {
+        "inspectionId":   { "$ref": "#/$defs/uuid" },
+        "treeId":         { "$ref": "#/$defs/uuid" },
+        "treeNumber":     { "$ref": "#/$defs/treeNumber" },
+        "inspectionDate": { "$ref": "#/$defs/date" },
+        "inspectorCode": {
+          "description": "Pseudonymous staff code. Never a name.",
+          "type": ["string", "null"],
+          "maxLength": 20
+        },
+        "trunkCircumferenceCm": { "type": ["integer", "null"], "minimum": 1, "maximum": 2000 },
+        "crownDiameterM":       { "type": ["number", "null"],  "minimum": 0.1, "maximum": 60 },
+        "heightM":              { "type": ["number", "null"],  "minimum": 0.1, "maximum": 80 },
+        "vitalityClass": {
+          "description": "Vitality class 1-5 (city scale, see ASSUMPTIONS A-10). null only for legacy records.",
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 5
+        },
+        "defects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/defect" }
+        },
+        "lastModified": { "$ref": "#/$defs/dateTime" }
+      }
+    },
+
+    "measure": {
+      "type": "object",
+      "required": ["measureId", "inspectionId", "treeId", "treeNumber", "measureTypeCode",
+                   "orderedOn", "dueDate", "priority", "status", "lastModified"],
+      "additionalProperties": false,
+      "properties": {
+        "measureId":       { "$ref": "#/$defs/uuid" },
+        "inspectionId":    { "$ref": "#/$defs/uuid" },
+        "treeId":          { "$ref": "#/$defs/uuid" },
+        "treeNumber":      { "$ref": "#/$defs/treeNumber" },
+        "measureTypeCode": { "$ref": "#/$defs/code" },
+        "orderedOn":       { "$ref": "#/$defs/date" },
+        "dueDate":         { "oneOf": [ { "$ref": "#/$defs/date" }, { "type": "null" } ] },
+        "priority":        { "enum": ["immediate", "high", "normal", "low"] },
+        "status":          { "enum": ["ordered", "done", "cancelled"] },
+        "completedOn":     { "oneOf": [ { "$ref": "#/$defs/date" }, { "type": "null" } ] },
+        "contractorName":  { "type": ["string", "null"], "maxLength": 150 },
+        "lastModified":    { "$ref": "#/$defs/dateTime" }
+      },
+      "allOf": [
+        {
+          "if":   { "properties": { "status": { "const": "done" } } },
+          "then": {
+            "required": ["completedOn"],
+            "properties": { "completedOn": { "$ref": "#/$defs/date" } }
+          },
+          "else": {
+            "properties": { "completedOn": { "type": "null" } }
+          }
+        }
+      ]
+    }
+  }
+}
