@@ -62,36 +62,68 @@ Judge every change from both perspectives, and weigh them by the model's `purpos
 2. **Existing consumers**: does software written against the old version still
    understand data produced under the new one? (Most important for exchange and APIs.)
 
+How much (2) matters depends on how consumers validate, recorded in
+`model.compatibility.consumers`:
+
+- **strict**: consumers validate against the released schema, e.g. JSON Schema with
+  `unevaluatedProperties: false`, an XSD sequence, or a closed `enum`. Any addition they
+  don't know about is rejected, even an optional field. This is the default when the
+  model's purposes include `exchange` or `api`.
+- **tolerant**: consumers ignore unknown fields and values (the "must-ignore" rule). This
+  is the default otherwise.
+
 ### Change classification (what `dmtool.py diff` implements)
+
+`risk` below means the change breaks strict consumers and is safe for tolerant ones. `diff`
+reports risk changes as follows; you can override the mode with `--consumers`:
+
+- strict mode: `CONSUMERS`, major;
+- strict mode with `compatibility.projection: true`: `CONSUMERS`, minor, because old
+  consumers keep receiving their version;
+- tolerant mode: `compatible`, minor.
 
 | change | existing data | existing consumers | bump |
 |--------|---------------|--------------------|------|
 | add class / datatype / enumeration | ok | ok | minor |
-| add optional attribute or association end | ok | risk: strict validators with closed content reject unknown elements | minor |
+| add optional attribute or association end | ok | risk: strict validators reject unknown elements | strict: major · tolerant: minor |
 | add mandatory attribute (lower bound ≥ 1) | **breaks** (old data lacks it) | **breaks** | major |
 | remove class / attribute / association / enum value | **breaks** | **breaks** | major |
-| rename anything | **breaks** | **breaks** | major |
+| rename anything (incl. `names`/`xml` overrides) | **breaks** | **breaks** | major |
 | raise lower bound (0..1 → 1) | **breaks** | ok | major |
-| lower lower bound (1 → 0..1) | ok | risk: consumers expect the value | minor (major if exchange consumers rely on it) |
+| lower lower bound (1 → 0..1) | ok | risk: consumers expect the value | strict: major · tolerant: minor |
 | lower upper bound (`*` → 1, 5 → 3) | **breaks** | ok | major |
 | raise upper bound from 1 to >1 | ok | **breaks** (value becomes list; column becomes table) | major |
-| raise upper bound >1 (3 → 5) | ok | risk | minor |
-| widen type (integer→long→decimal, string→text) | ok | risk | minor |
+| raise upper bound >1 (3 → 5) | ok | risk | strict: major · tolerant: minor |
+| widen type (integer→long→decimal, string→text) | ok | risk | strict: major · tolerant: minor |
 | narrow or change type otherwise | **breaks** | **breaks** | major |
-| relax constraint (longer maxLength, wider range, pattern removed) | ok | risk | minor |
+| relax constraint (longer maxLength, wider range, pattern removed) | ok | risk | strict: major · tolerant: minor |
 | tighten constraint | **breaks** | ok | major |
-| add value to closed enum | ok | risk: consumers with exhaustive handling | minor |
+| add enforced rule (`constraints`) for all data | may break | ok | major |
+| add rule with `scope: new` or `enforcement: warning`/`documented` | ok | ok | minor |
+| add value to closed enum | ok | risk | strict: major · tolerant: minor |
 | add value to extensible enum | ok | ok | minor (no model change needed if values are managed externally) |
 | make enum closed | may break | ok | major |
-| `voidable` false → true | ok | risk | minor |
+| `voidable` false → true | ok | risk | strict: major · tolerant: minor |
 | `voidable` true → false | **breaks** | ok | major |
-| change `extends`, `abstract`, identifier, or association kind | **breaks** | **breaks** | major |
+| change `extends`, `abstract`, identifier, association kind, or enum `codeType` | **breaks** | **breaks** | major |
 | mark deprecated | ok | ok | minor |
-| description / label / notes | ok | ok | patch |
+| description / label / notes / translations | ok | ok | patch |
 
-"Risk" items are compatible by the rules of the neutral model but can break real
-consumers. Mention them to the user when the model has `exchange` or `api` purposes; the
-user decides whether to treat them as major.
+### Strict consumers: what to offer instead of a major release
+
+With strict consumers, even an optional addition breaks them. Tell the user, then offer:
+
+1. **A projection for old consumers.** The exchange interface sends each partner documents
+   in the version they implemented, leaving out elements added later. That's always
+   possible when additions are optional. Record which partner is on which version. Once
+   the interface does this, set `compatibility.projection: true`. Additions then count
+   as minor versions, and the CHANGELOG lists what each projection must drop.
+2. **Derive instead of store.** For example, compute "expired" from `validUntil` instead
+   of adding a value to a closed status list.
+3. **Agree on open content for the future.** In the next major version, switch to
+   tolerant consumers: `exportOptions.jsonschema.closed: false` and the must-ignore rule
+   in the interface contract. After that, optional additions stop being breaking.
+4. **A major version**, bundling several breaking changes, with a migration period.
 
 ### Avoiding breaking changes
 

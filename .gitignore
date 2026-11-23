@@ -1,0 +1,7 @@
+# eval workspaces (results are curated into test-runs/)
+*-workspace/
+# `claude plugin eval` results
+data-model-steward/evals/results/
+# Python
+__pycache__/
+*.pyc

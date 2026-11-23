@@ -27,8 +27,20 @@ under `model.exportOptions` so later regenerations make the same choices.
 | datatype value | nested object · flattened columns · `jsonb` | nested (JSON/XSD), flattened columns, child table if multi-valued (SQL) |
 | geometry | GeoJSON · GML · WKT · PostGIS | GeoJSON (JSON), placeholder `xs:anyType` + note to import GML (XSD), PostGIS `geometry(Type, SRID)` (SQL) |
 
-Naming: canonical names are converted per target (snake_case in SQL; unchanged in
-JSON/XSD). Override with `names: {postgres: …}` on an element when needed.
+Naming: canonical names are transliterated to ASCII (ä→ae, ß→ss …) and converted per
+target (snake_case in SQL; otherwise unchanged in JSON/XSD). To override, set
+`names: {json|xsd|postgres: …}` on the element (model-format.md §12).
+
+Languages: `dmtool.py export … --lang de` picks the language of descriptions, titles and
+comments; the default is the first documentation language. JSON Schema and XSD also
+carry the other languages (see below). `--format all -o <dir>` writes every target in
+`model.targets` plus `diagram.mmd`.
+
+Existing wire formats: when the model must reproduce an existing XSD or JSON format, use
+`names` for deviating names, `xml.attribute`/`xml.type` for XML attributes such as
+`xs:ID`, and `codeType: integer` for numeric code lists. Then check compatibility: a
+sample document valid against the original schema must also validate against the
+generated one, and vice versa where intended (lxml, see §6).
 
 ## 2. JSON Schema (draft 2020-12)
 
@@ -47,6 +59,10 @@ JSON/XSD). Override with `names: {postgres: …}` on an element when needed.
 - References → the target's identifier value (`format: uuid`, `uri`, or string).
 - `history` adds `versionId`, `validFrom`, `validTo` (and `recordedAt` for bitemporal).
 - Constraints that JSON Schema can't express (cross-field rules) go into `$comment`.
+- `label` → `title`, `description` → `description`, both in the export language. Other
+  languages go in `x-i18n: {de: {title, description}}`. Enumeration value labels go in
+  `x-enumLabels: {lang: {code: label}}`.
+- `codeType: integer` → `type: integer` with an integer `enum`.
 
 ## 3. XML Schema (XSD 1.0)
 
@@ -55,13 +71,20 @@ JSON/XSD). Override with `names: {postgres: …}` on an element when needed.
 - `targetNamespace` = `model.namespace`, `elementFormDefault="qualified"`.
 - Each class → `complexType <Name>Type` + global element `<Name>` (not for abstract
   classes, which get `abstract="true"`). Subclasses use `xs:extension`.
-- Attributes → child elements in a `xs:sequence` (order = model order); multiplicity →
-  `minOccurs`/`maxOccurs`; voidable → `nillable="true"`.
-- Identifier → XML attribute `id` of type `xs:ID` is *not* used (too restrictive for
-  UUIDs starting with digits); the identifier stays an element.
+- Attributes → child elements in a `xs:sequence` (order = model order, then association
+  roles); multiplicity → `minOccurs`/`maxOccurs`; voidable → `nillable="true"`.
+- `xml: {attribute: true}` → `xs:attribute` (after the sequence, `use="required"` for lower
+  bound 1). `xml: {type: "xs:ID"}` sets the literal XSD type. `xml.typeName` and
+  `xml.globalElement` on classes control type names and global elements.
+- The identifier stays an element by default. Use `xml.attribute` with `xs:ID` only to
+  match an existing format: `xs:ID` values are only unique within one document and
+  cannot start with a digit (e.g. UUIDs).
 - References → element of type `ReferenceType` with attribute `href` (URI or ID).
-- Closed enumeration → `xs:simpleType` with `xs:enumeration`; extensible → `xs:string`
-  with documentation listing known values.
+- Closed enumeration → `xs:simpleType` with `xs:enumeration` (base `xs:int` for
+  `codeType: integer`); extensible → unrestricted base type with documentation listing
+  known values.
+- Documentation: one `xs:documentation xml:lang="…"` per documentation language, on types,
+  elements, attributes and enumeration values (labels).
 - Geometry → `xs:anyType` with an annotation. For real use, import GML
   (`gml:PointPropertyType`, etc.) — this is a decision to confirm and do by hand.
 - Constraints that XSD 1.0 can't express → `xs:annotation/xs:documentation`
@@ -80,16 +103,25 @@ JSON/XSD). Override with `names: {postgres: …}` on an element when needed.
   `from` upper bound 1 and `to` many → FK on the `to` table; many-to-many → join table
   `<from>_<role>`. Composition → FK on the part table with `ON DELETE CASCADE`.
 - Every FK column gets an index. `unique` → `UNIQUE`.
-- `history.mode` `audit`/`versioned`/`bitemporal` → `<table>_history` table (copy of
-  columns + `history_id`, `operation`, `recorded_at`); `validTime` → `valid_from`/`valid_to`
-  columns on the main table; `deletion: logical` → `deleted_at`. Triggers that fill the
-  history table are left to the implementation (comment emitted) — offer to write them.
+- `history.mode` `audit`/`versioned`/`bitemporal` → `<table>_history` table (`history_id`,
+  `operation`, `recorded_at`, `recorded_by`, and the row as `row_data jsonb`); `validTime` →
+  `valid_from`/`valid_to` columns on the main table; `deletion: logical` → `deleted_at`.
+  Triggers that fill the history table are left to the implementation (comment emitted) —
+  offer to write them.
+- Closed enumeration → `ENUM` type (labels in its comment); `codeType: integer` →
+  `smallint`/`integer` column with `CHECK (col IN (…))`; extensible → lookup table
+  (`code`, `label` in the export language, `description`, `deprecated`) with a FK.
+- `COMMENT ON` texts are in the export language (`--lang`).
 - `geometry` → PostGIS `geometry(<Type>, <SRID>)` and `CREATE EXTENSION IF NOT EXISTS postgis`.
 - Use `nfr` for physical tuning *after* the generated DDL: e.g. GiST index for spatial
   access paths, partitioning for > ~100 M rows or time-based retention, BRIN for
   append-only timestamps. Put these in a separate `tuning.sql` so regeneration doesn't lose them.
 - For a new version of a released model, also produce `migrate_<old>_to_<new>.sql` based on
   `dmtool.py diff` output (written by you, reviewed by the user).
+
+`dmtool.py release` regenerates all targets into `exports/<version>/` in the default
+language. For another language, run `export --lang` into the same folder with a suffix,
+e.g. `schema.de.sql`.
 
 ## 5. Other targets (not in the script — write them following the rules above)
 

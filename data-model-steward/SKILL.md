@@ -24,8 +24,9 @@ Three principles drive everything below:
 
 ## The model workspace
 
-On first use, create this structure in the user's project (ask where if it's unclear;
-default `./datamodel/`):
+On first use, create this structure in the user's project with
+`python scripts/dmtool.py init datamodel --name <ModelName> --languages en[,de,…]`
+(ask where if it's unclear; default `./datamodel/`):
 
 ```
 datamodel/
@@ -39,17 +40,26 @@ datamodel/
 └── exports/<version>/…   # generated schemas, never edited by hand
 ```
 
-Start `model.yaml` from `assets/model-template.yaml`. If a `datamodel/` folder already
-exists, you are in **maintenance mode** — skip to "Amending an existing model".
+`assets/model-template.yaml` is a complete worked example to copy patterns from. If a
+`datamodel/` folder already exists, you are in **maintenance mode** — skip to "Amending an
+existing model".
 
 Use `scripts/dmtool.py` (Python 3 + PyYAML) for everything deterministic:
 
 ```
+python scripts/dmtool.py init     datamodel --name PermitRegistry --languages en,de
 python scripts/dmtool.py validate datamodel/model.yaml
 python scripts/dmtool.py diagram  datamodel/model.yaml            # Mermaid class diagram
-python scripts/dmtool.py export   datamodel/model.yaml --format jsonschema|xsd|postgres -o <file>
-python scripts/dmtool.py diff     datamodel/releases/1.0.0/model.yaml datamodel/model.yaml
+python scripts/dmtool.py export   datamodel/model.yaml --format jsonschema|xsd|postgres|all -o <file|dir> [--lang de]
+python scripts/dmtool.py diff     datamodel/releases/1.0.0/model.yaml datamodel/model.yaml [--consumers strict|tolerant]
+python scripts/dmtool.py release  datamodel [--version X.Y.Z] [--dry-run]
 ```
+
+`release` does the whole release in one step. It validates (unconfirmed `proposed` elements
+and missing translations are errors), works out the minimum version from the diff against
+the last release, and sets `version` and `status`. It then saves the snapshot in
+`releases/`, regenerates every target into `exports/<version>/` and drafts the CHANGELOG
+entry. It never overwrites an existing release. Use `--dry-run` to show the user the plan first.
 
 Run `validate` after every edit of `model.yaml`. Generating schemas with the script rather
 than writing them freehand keeps exports reproducible and consistent across versions; if a
@@ -86,7 +96,17 @@ just confirm):
 - **Stakeholders and producers/consumers** of the data.
 - **Standards and reference models** to align with or reuse (e.g. domain standards,
   existing code lists). Reusing beats reinventing.
-- **Conventions**: naming language, case style per target, namespace/URI base.
+- **Languages**: the language of the identifiers (class and attribute names), and the
+  documentation languages for definitions, labels and code-list labels. The default is
+  the user's language for documentation, with identifiers in English unless the domain or a
+  standard says otherwise. Several documentation languages are common for public-sector and
+  cross-border models. Record them in `model.languages`. Identifiers may use non-ASCII
+  letters (e.g. `länge`); exporters transliterate them (`laenge`), and `names` overrides
+  per target are available.
+- **Conventions**: case style per target, namespace/URI base.
+- **How consumers validate**: do partners validate strictly against the released schema
+  (closed content, closed enums)? If so, even optional additions break them. Record it in
+  `model.compatibility.consumers` (`strict`/`tolerant`); `diff` and `release` use it.
 
 Record the answers in the `model:` header of `model.yaml` and in `decisions.md`.
 
@@ -143,13 +163,14 @@ requirement has no influence on the neutral model but will matter for a specific
 
 1. Run `validate`; fix errors, discuss warnings.
 2. Walk the user through the open questions and assumptions that remain.
-3. Generate the exports needed for the declared usages into `exports/<version>/`. Read
-   `references/exports.md` for how neutral concepts map to each target and which mapping
-   decisions (inheritance strategy, composition nesting, enum representation, ID strategy)
-   to confirm with the user and log.
-4. On the user's go-ahead: set `model.version` (first release is normally `1.0.0`; use
-   `0.x` while the model is still unstable), set `status: released`, copy `model.yaml` to
-   `releases/<version>/`, and write the CHANGELOG entry.
+3. Read `references/exports.md` for how neutral concepts map to each target. Confirm the
+   mapping decisions (inheritance strategy, composition nesting, enum representation, ID
+   strategy, XML attributes vs. elements) with the user and log them. Preview the
+   generated output with `dmtool.py export … --format all -o <tmp dir>`.
+4. On the user's go-ahead, run `dmtool.py release datamodel --dry-run`, show the plan, then
+   run it without `--dry-run`. The first release is normally `1.0.0`; pass
+   `--version 0.1.0` or similar while the model is still unstable. Complete the generated
+   CHANGELOG entry with sources, decisions and migration notes.
 
 ## Amending an existing model
 
@@ -168,13 +189,23 @@ need Y").
    (add optional instead of required, deprecate instead of remove, add a new attribute
    instead of retyping, widen instead of narrow, …).
 5. **Apply** the accepted changes to `model.yaml`, with `since:` on new elements and
-   `deprecated:` on retired ones, and new source/decision references.
+   `deprecated:` on retired ones, and new source/decision references. Set `status: draft`
+   while working; `release` sets the version. Rules that only apply to data created from
+   now on get `scope: new`; rules that are only checked as warnings get
+   `enforcement: warning`. Neither breaks existing data.
 6. **Verify** with `dmtool.py diff releases/<last>/model.yaml model.yaml`. The tool
-   classifies each change and recommends a version bump. If it reports anything
-   breaking, tell the user what breaks for whom, what the non-breaking alternative would
-   cost, and get an explicit decision; log it in `decisions.md` together with migration
+   classifies each change and recommends a version bump. It reports two kinds of break:
+   - `BREAKING`: existing data or every consumer is affected.
+   - `CONSUMERS`: only consumers that validate strictly against the released schema are
+     affected. In strict mode even an optional field or a new value in a closed list
+     counts.
+
+   For either kind, tell the user what breaks for whom and the options: a non-breaking
+   alternative, a projection that leaves out the new elements for old consumers, or a
+   major version. Get an explicit decision and log it in `decisions.md` with migration
    guidance (SQL migration, transformation notes for exchange partners).
-7. Update CHANGELOG, regenerate exports, and release when the user says so.
+7. Release when the user says so (`dmtool.py release`, see Phase 6). Complete the
+   generated CHANGELOG entry.
 
 Never edit files under `releases/` — they are the record of what was promised.
 
@@ -187,7 +218,10 @@ Never edit files under `releases/` — they are the record of what was promised.
   each, and mark which ones block progress.
 - Keep a visible list of assumptions you made to keep moving, and log them in
   `open-questions.md` so they get confirmed later rather than forgotten.
-- Use the user's domain vocabulary, and record synonyms in `glossary.md`.
+- Use the user's domain vocabulary, and record synonyms in `glossary.md`. Talk to the user
+  in their language. When the model has several documentation languages, write every
+  definition and label in all of them: `validate` lists missing translations, and
+  `release` refuses to run while any are missing.
 - Show diagrams and compact tables instead of long YAML when discussing the model; the
   user should not need to read YAML to review it.
 - If the user wants speed ("just draft something"), make reasonable assumptions, mark
@@ -199,4 +233,4 @@ Never edit files under `releases/` — they are the record of what was promised.
 - `references/source-ingestion.md` — how to extract model candidates from each input type.
 - `references/versioning-and-compatibility.md` — data historisation patterns, schema versioning, change classification, non-breaking alternatives, deprecation.
 - `references/exports.md` — mapping rules and decisions for XSD, JSON Schema, PostgreSQL, and guidance for OWL/SHACL, OpenAPI, Avro/Protobuf, GraphQL.
-- `assets/model-template.yaml` — starting point for a new model (also a worked example).
+- `assets/model-template.yaml` — worked example of a complete model (bilingual en/de).
